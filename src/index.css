@@ -1,0 +1,27 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  --font-display: 'Cabinet Grotesk', 'Plus Jakarta Sans', system-ui, sans-serif;
+}
+
+:root {
+  --color-primary: #FF6A00;
+  --color-secondary: #FF8A00;
+  --color-light-orange: #FFF3E8;
+  --color-dark: #222222;
+  --color-muted: #666666;
+  --color-bg: #F7F7F7;
+  --color-border: #E5E5E5;
+}
+
+body {
+  font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  color: #222222;
+  background-color: #F7F7F7;
+}
+
+.font-display {
+  font-family: 'Cabinet Grotesk', 'Plus Jakarta Sans', system-ui, sans-serif;
+}
+
