@@ -6,3 +6,7 @@ coverage/
 *.log
 .env*
 !.env.example
+
+# Local JSON store: runtime state, includes seeded demo password hashes.
+# Production data lives in Postgres (DATABASE_URL).
+data/

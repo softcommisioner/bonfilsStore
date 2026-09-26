@@ -25,7 +25,7 @@ export const ShopsView: React.FC<ShopsViewProps> = ({ sellerId, onNavigate }) =>
           setShopProducts(data.products || []);
         } else {
           const data = await api.getSellers();
-          setBusinesses(data.businesses || []);
+          setBusinesses(data || []);
         }
       } catch (err) {
         console.error('Error fetching shops', err);

@@ -1,10 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { AuthProvider, useAuth } from './context/AuthContext';
+import { AuthProvider } from './context/AuthContext';
 import { CartProvider } from './context/CartContext';
 import { Header } from './components/Header';
 import { Footer } from './components/Footer';
 import { MultiSellerCartDrawer } from './components/MultiSellerCartDrawer';
-import { EmailInboxDrawer } from './components/EmailInboxDrawer';
 import { HomeView } from './views/HomeView';
 import { ProductsView } from './views/ProductsView';
 import { ProductDetailView } from './views/ProductDetailView';
@@ -18,6 +17,24 @@ import { AuthViews } from './views/AuthViews';
 import { ShopsView } from './views/ShopsView';
 import { CategoriesView } from './views/CategoriesView';
 
+function NotFoundView({ onNavigate }: { onNavigate: (route: string) => void }) {
+  return (
+    <div className="max-w-3xl mx-auto px-4 py-24 text-center space-y-4">
+      <p className="text-xs font-bold text-[#FF6A00] uppercase tracking-wider">Error 404</p>
+      <h1 className="text-3xl font-extrabold text-[#222222]">This page could not be found</h1>
+      <p className="text-sm text-[#666666]">
+        The link may be broken or the product may have been removed from the catalogue.
+      </p>
+      <button
+        onClick={() => onNavigate('/')}
+        className="inline-block px-6 py-3 bg-[#FF6A00] hover:bg-[#FF8A00] text-white text-xs font-bold rounded-lg cursor-pointer"
+      >
+        Back to homepage
+      </button>
+    </div>
+  );
+}
+
 function MainRouter() {
   const [currentRoute, setCurrentRoute] = useState<string>(() => {
     const path = window.location.pathname;
@@ -30,9 +47,7 @@ function MainRouter() {
 
   const [searchQuery, setSearchQuery] = useState('');
   const [activeCategory, setActiveCategory] = useState('');
-  const [autoFilledOtp, setAutoFilledOtp] = useState<string | undefined>();
 
-  // Synchronize route with history & hash
   const navigate = (route: string) => {
     setCurrentRoute(route);
     window.location.hash = route.startsWith('/') ? route.slice(1) : route;
@@ -69,28 +84,34 @@ function MainRouter() {
     navigate(`/products?category=${encodeURIComponent(cat)}`);
   };
 
-  // Check if viewing protected /admin route (Do NOT show public header/footer on admin page)
+  // The Super Admin console is never linked from the public shell.
   const isAdminRoute = currentRoute === '/admin' || currentRoute.startsWith('/admin');
 
   if (isAdminRoute) {
     return (
       <div className="min-h-screen bg-[#141414]">
-        <AdminViews 
-          onNavigate={navigate} 
-          onOtpAutoFillCode={autoFilledOtp} 
-        />
-        <EmailInboxDrawer onFillOtp={(code) => setAutoFilledOtp(code)} />
+        <AdminViews onNavigate={navigate} />
       </div>
     );
   }
 
-  // Parse path and params
   const [basePath, paramString] = currentRoute.split('?');
   const urlParams = new URLSearchParams(paramString || '');
   const searchParam = urlParams.get('search') || '';
   const categoryParam = urlParams.get('category') || '';
+  const sortParam = urlParams.get('sort') || '';
+  const featuredParam = urlParams.get('featured') || '';
   const trackingParam = urlParams.get('trk') || '';
   const tabParam = (urlParams.get('tab') as any) || 'orders';
+
+  const knownRoutes = [
+    '/', '/products', '/categories', '/shops', '/china-sourcing', '/shipping',
+    '/account', '/seller', '/login', '/register', '/forgot-password',
+  ];
+  const isKnownRoute = knownRoutes.includes(basePath)
+    || basePath.startsWith('/products/')
+    || basePath.startsWith('/shops/')
+    || basePath.startsWith('/china-sourcing/');
 
   return (
     <div className="min-h-screen flex flex-col bg-[#F7F7F7] text-[#222222]">
@@ -103,26 +124,21 @@ function MainRouter() {
         onSearchSubmit={handleSearchSubmit}
       />
 
-      {/* Main Viewport */}
       <main className="flex-1">
-        {/* Home */}
         {basePath === '/' && (
-          <HomeView
-            onNavigate={navigate}
-            onSelectCategory={handleSelectCategory}
-          />
+          <HomeView onNavigate={navigate} onSelectCategory={handleSelectCategory} />
         )}
 
-        {/* Product Catalog */}
         {basePath === '/products' && (
           <ProductsView
             onNavigate={navigate}
             initialCategory={categoryParam || activeCategory}
             initialSearch={searchParam || searchQuery}
+            initialSort={sortParam}
+            initialFeatured={featuredParam}
           />
         )}
 
-        {/* Product Detail */}
         {basePath.startsWith('/products/') && (
           <ProductDetailView
             productId={basePath.replace('/products/', '')}
@@ -130,29 +146,22 @@ function MainRouter() {
           />
         )}
 
-        {/* Categories */}
         {basePath === '/categories' && (
           <CategoriesView onSelectCategory={handleSelectCategory} />
         )}
 
-        {/* Verified Shops / Sellers */}
         {basePath === '/shops' && (
           <ShopsView onNavigate={navigate} />
         )}
 
         {basePath.startsWith('/shops/') && (
-          <ShopsView
-            sellerId={basePath.replace('/shops/', '')}
-            onNavigate={navigate}
-          />
+          <ShopsView sellerId={basePath.replace('/shops/', '')} onNavigate={navigate} />
         )}
 
-        {/* China Product Sourcing Intake */}
         {basePath === '/china-sourcing' && (
           <ChinaSourcingView onNavigate={navigate} />
         )}
 
-        {/* China Sourcing Detail & Quotation Tracker */}
         {basePath.startsWith('/china-sourcing/') && (
           <ChinaRequestDetailView
             requestId={basePath.replace('/china-sourcing/', '')}
@@ -160,60 +169,27 @@ function MainRouter() {
           />
         )}
 
-        {/* Shipping & Freight Checkpoint Tracking */}
         {basePath === '/shipping' && (
-          <ShippingTrackingView
-            initialTracking={trackingParam}
-            onNavigate={navigate}
-          />
+          <ShippingTrackingView initialTracking={trackingParam} onNavigate={navigate} />
         )}
 
-        {/* Customer Account & Order History */}
         {basePath === '/account' && (
-          <CustomerAccountView
-            initialTab={tabParam}
-            onNavigate={navigate}
-          />
+          <CustomerAccountView initialTab={tabParam} onNavigate={navigate} />
         )}
 
-        {/* Seller Dashboard (For verified sellers / business owners) */}
         {basePath === '/seller' && (
           <SellerDashboardView onNavigate={navigate} />
         )}
 
-        {/* Auth Views: Login / Register / Forgot Password / OTP */}
-        {basePath === '/login' && (
-          <AuthViews
-            initialMode="login"
-            onNavigate={navigate}
-            onOtpAutoFillCode={autoFilledOtp}
-          />
-        )}
+        {basePath === '/login' && <AuthViews initialMode="login" onNavigate={navigate} />}
+        {basePath === '/register' && <AuthViews initialMode="register" onNavigate={navigate} />}
+        {basePath === '/forgot-password' && <AuthViews initialMode="forgot_password" onNavigate={navigate} />}
 
-        {basePath === '/register' && (
-          <AuthViews
-            initialMode="register"
-            onNavigate={navigate}
-            onOtpAutoFillCode={autoFilledOtp}
-          />
-        )}
-
-        {basePath === '/forgot-password' && (
-          <AuthViews
-            initialMode="forgot_password"
-            onNavigate={navigate}
-            onOtpAutoFillCode={autoFilledOtp}
-          />
-        )}
+        {!isKnownRoute && <NotFoundView onNavigate={navigate} />}
       </main>
 
-      {/* Multi-Seller Cart Drawer */}
       <MultiSellerCartDrawer onNavigate={navigate} />
 
-      {/* Real-time Email & OTP Dispatcher Drawer */}
-      <EmailInboxDrawer onFillOtp={(code) => setAutoFilledOtp(code)} />
-
-      {/* Public Footer */}
       <Footer onNavigate={navigate} />
     </div>
   );

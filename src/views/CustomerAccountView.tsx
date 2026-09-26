@@ -42,8 +42,8 @@ export const CustomerAccountView: React.FC<CustomerAccountViewProps> = ({
           api.getOrders(),
           api.getChinaRequests(user?.email),
         ]);
-        setOrders(ordersData.orders || []);
-        setChinaRequests(chinaData.requests || []);
+        setOrders(ordersData || []);
+        setChinaRequests(chinaData || []);
       } catch (err) {
         console.error('Error fetching account data', err);
       } finally {

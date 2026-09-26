@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Star, ShoppingCart, Store, ShieldCheck } from 'lucide-react';
 import type { Product } from '../types';
 import { useCart } from '../context/CartContext';
+import { nextProductImage, productImageCandidates } from '../services/images';
 
 interface ProductCardProps {
   product: Product;
@@ -10,19 +11,22 @@ interface ProductCardProps {
 
 export const ProductCard: React.FC<ProductCardProps> = ({ product, onNavigate }) => {
   const { addItem } = useCart();
+  const inStock = product.stock > 0;
+  const lowStock = inStock && product.stock <= 5;
+  const candidates = productImageCandidates(product);
 
   const handleAddToCart = (e: React.MouseEvent) => {
     e.stopPropagation();
-    addItem(product, 1);
+    if (inStock) addItem(product, 1);
   };
 
   const handleBuyNow = (e: React.MouseEvent) => {
     e.stopPropagation();
-    addItem(product, 1);
+    if (inStock) addItem(product, 1);
   };
 
-  const fallbackImage = '/src/assets/images/product_cctv_camera_1790334796559.jpg';
-  const displayImage = product.images[0] || fallbackImage;
+  const [imageIndex, setImageIndex] = useState(0);
+  const displayImage = candidates[Math.min(imageIndex, candidates.length - 1)];
 
   return (
     <div
@@ -34,10 +38,12 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onNavigate })
         <img
           src={displayImage}
           alt={product.title}
+          loading="lazy"
           referrerPolicy="no-referrer"
-          className="w-full h-full object-cover group-hover:scale-103 transition-transform duration-300"
-          onError={(e) => {
-            (e.target as HTMLImageElement).src = fallbackImage;
+          className={`w-full h-full object-cover group-hover:scale-103 transition-transform duration-300 ${inStock ? '' : 'opacity-60 grayscale'}`}
+          onError={() => {
+            const next = nextProductImage(product, imageIndex);
+            if (next) setImageIndex(imageIndex + 1);
           }}
         />
 
@@ -45,6 +51,20 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onNavigate })
           <div className="absolute top-2 left-2 bg-[#222222]/90 backdrop-blur-xs text-white text-[10px] font-bold px-2 py-0.5 rounded flex items-center gap-1 shadow-xs">
             <ShieldCheck className="w-3 h-3 text-[#FF6A00]" />
             <span>Official Store</span>
+          </div>
+        )}
+
+        {!inStock && (
+          <div className="absolute inset-0 flex items-center justify-center">
+            <span className="bg-[#222222]/85 text-white text-[11px] font-bold px-3 py-1.5 rounded tracking-wide">
+              Out of stock
+            </span>
+          </div>
+        )}
+
+        {lowStock && (
+          <div className="absolute top-2 right-2 bg-[#FFF3E8] text-[#FF6A00] text-[10px] font-bold px-2 py-0.5 rounded shadow-xs">
+            Only {product.stock} left
           </div>
         )}
       </div>
@@ -94,14 +114,16 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onNavigate })
           <div className="grid grid-cols-2 gap-1.5 mt-2.5">
             <button
               onClick={handleAddToCart}
-              className="py-1.5 px-2 bg-[#FFF3E8] hover:bg-[#FFE6CF] text-[#FF6A00] text-[11px] font-bold rounded transition-colors cursor-pointer flex items-center justify-center gap-1"
+              disabled={!inStock}
+              className="py-1.5 px-2 bg-[#FFF3E8] hover:bg-[#FFE6CF] text-[#FF6A00] text-[11px] font-bold rounded transition-colors cursor-pointer flex items-center justify-center gap-1 disabled:bg-[#F3F3F3] disabled:text-[#AAAAAA] disabled:cursor-not-allowed disabled:hover:bg-[#F3F3F3]"
             >
               <ShoppingCart className="w-3 h-3" />
-              <span>Add to Cart</span>
+              <span>{inStock ? 'Add to Cart' : 'Sold out'}</span>
             </button>
             <button
               onClick={handleBuyNow}
-              className="py-1.5 px-2 bg-[#FF6A00] hover:bg-[#FF8A00] text-white text-[11px] font-bold rounded transition-colors cursor-pointer flex items-center justify-center"
+              disabled={!inStock}
+              className="py-1.5 px-2 bg-[#FF6A00] hover:bg-[#FF8A00] text-white text-[11px] font-bold rounded transition-colors cursor-pointer disabled:bg-[#CCCCCC] disabled:cursor-not-allowed disabled:hover:bg-[#CCCCCC]"
             >
               Buy Now
             </button>

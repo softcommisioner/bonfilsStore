@@ -5,7 +5,7 @@ import {
 } from 'lucide-react';
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
-import type { ChinaRequest } from '../types';
+import type { ChinaRequest, Category } from '../types';
 
 interface ChinaSourcingViewProps {
   onNavigate: (route: string) => void;
@@ -17,7 +17,8 @@ export const ChinaSourcingView: React.FC<ChinaSourcingViewProps> = ({ onNavigate
   // Form Fields - Product Information
   const [productName, setProductName] = useState('');
   const [description, setDescription] = useState('');
-  const [category, setCategory] = useState('Consumer Electronics');
+  const [category, setCategory] = useState('');
+  const [categories, setCategories] = useState<Category[]>([]);
   const [quantity, setQuantity] = useState('10');
   const [preferredBrand, setPreferredBrand] = useState('');
   const [modelNumber, setModelNumber] = useState('');
@@ -61,6 +62,16 @@ export const ChinaSourcingView: React.FC<ChinaSourcingViewProps> = ({ onNavigate
       if (!city) setCity(user.city);
     }
   }, [user]);
+
+  useEffect(() => {
+    api.getCategories()
+      .then(list => {
+        const active = list || [];
+        setCategories(active);
+        setCategory(current => current || active[0]?.name || '');
+      })
+      .catch(err => console.error('Error loading categories', err));
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -255,13 +266,12 @@ export const ChinaSourcingView: React.FC<ChinaSourcingViewProps> = ({ onNavigate
                     onChange={(e) => setCategory(e.target.value)}
                     className="w-full px-3 py-2 text-xs border border-[#E5E5E5] rounded-lg focus:border-[#FF6A00] focus:outline-none bg-white"
                   >
-                    <option value="Consumer Electronics">Consumer Electronics</option>
-                    <option value="Security & Surveillance">Security & Surveillance</option>
-                    <option value="Industrial & Hardware">Industrial & Hardware</option>
-                    <option value="Commercial Kitchen & Cafe">Commercial Kitchen & Cafe</option>
-                    <option value="Solar & Energy">Solar & Energy</option>
-                    <option value="Automotive & Spare Parts">Automotive & Spare Parts</option>
-                    <option value="Fashion & Apparel">Fashion & Apparel</option>
+                    {categories.length === 0 && (
+                      <option value="">Any category</option>
+                    )}
+                    {categories.map(item => (
+                      <option key={item.id} value={item.name}>{item.name}</option>
+                    ))}
                     <option value="Other">Other Custom Category</option>
                   </select>
                 </div>

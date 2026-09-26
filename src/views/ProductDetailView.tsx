@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import { api } from '../services/api';
 import { useCart } from '../context/CartContext';
+import { nextProductImage, productImageCandidates } from '../services/images';
 import type { Product, Business } from '../types';
 
 interface ProductDetailViewProps {
@@ -17,7 +18,7 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ productId,
   const [product, setProduct] = useState<Product | null>(null);
   const [business, setBusiness] = useState<Business | null>(null);
   const [quantity, setQuantity] = useState(1);
-  const [selectedImage, setSelectedImage] = useState<string>('');
+  const [imageIndex, setImageIndex] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [isCopied, setIsCopied] = useState(false);
 
@@ -27,12 +28,12 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ productId,
       try {
         const data = await api.getProduct(productId);
         setProduct(data.product);
-        if (data.business) setBusiness(data.business);
-        if (data.product.images.length > 0) {
-          setSelectedImage(data.product.images[0]);
-        }
+        setBusiness(data.business || null);
+        setImageIndex(0);
+        setQuantity(1);
       } catch (err) {
         console.error('Error fetching product', err);
+        setProduct(null);
       } finally {
         setIsLoading(false);
       }
@@ -77,8 +78,9 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ productId,
     setTimeout(() => setIsCopied(false), 2000);
   };
 
-  const fallbackImage = '/src/assets/images/product_cctv_camera_1790334796559.jpg';
-  const activeImage = selectedImage || product.images[0] || fallbackImage;
+  const inStock = product.stock > 0;
+  const candidates = productImageCandidates(product);
+  const activeImage = candidates[Math.min(imageIndex, candidates.length - 1)];
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -107,11 +109,19 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ productId,
               src={activeImage}
               alt={product.title}
               referrerPolicy="no-referrer"
-              className="w-full h-full object-cover"
-              onError={(e) => {
-                (e.target as HTMLImageElement).src = fallbackImage;
+              className={`w-full h-full object-cover ${inStock ? '' : 'opacity-60 grayscale'}`}
+              onError={() => {
+                const next = nextProductImage(product, imageIndex);
+                if (next) setImageIndex(imageIndex + 1);
               }}
             />
+            {!inStock && (
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                <span className="bg-[#222222]/85 text-white text-xs font-bold px-4 py-2 rounded-md tracking-wide">
+                  Out of stock
+                </span>
+              </div>
+            )}
             {product.isOfficial && (
               <div className="absolute top-4 left-4 bg-[#222222]/90 text-white text-xs font-bold px-3 py-1 rounded-md flex items-center gap-1.5 shadow-sm">
                 <ShieldCheck className="w-4 h-4 text-[#FF6A00]" />
@@ -121,17 +131,17 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ productId,
           </div>
 
           {/* Thumbnails if multiple */}
-          {product.images.length > 1 && (
+          {candidates.length > 1 && (
             <div className="flex gap-2.5 overflow-x-auto pb-1">
-              {product.images.map((img, i) => (
+              {candidates.map((img, i) => (
                 <button
-                  key={i}
-                  onClick={() => setSelectedImage(img)}
+                  key={`${img}-${i}`}
+                  onClick={() => setImageIndex(i)}
                   className={`w-16 h-16 rounded-lg border-2 overflow-hidden shrink-0 cursor-pointer ${
-                    activeImage === img ? 'border-[#FF6A00]' : 'border-[#E5E5E5]'
+                    i === imageIndex ? 'border-[#FF6A00]' : 'border-[#E5E5E5]'
                   }`}
                 >
-                  <img src={img} alt="thumbnail" className="w-full h-full object-cover" />
+                  <img src={img} alt={`${product.title} view ${i + 1}`} loading="lazy" className="w-full h-full object-cover" />
                 </button>
               ))}
             </div>
@@ -241,17 +251,19 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ productId,
                 <label className="text-xs font-semibold text-[#444444]">Select Quantity:</label>
                 <div className="flex items-center border border-[#E5E5E5] rounded-lg overflow-hidden bg-white">
                   <button
-                    onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                    className="px-3 py-2 hover:bg-[#F7F7F7] text-[#555555] cursor-pointer"
+                    onClick={() => setQuantity(prev => Math.max(1, prev - 1))}
+                    disabled={!inStock || quantity <= 1}
+                    className="px-3 py-2 hover:bg-[#F7F7F7] text-[#555555] cursor-pointer disabled:text-[#CCCCCC] disabled:cursor-not-allowed"
                   >
                     <Minus className="w-3 h-3" />
                   </button>
                   <span className="px-4 text-xs font-bold tabular-nums text-[#222222]">
-                    {quantity}
+                    {inStock ? quantity : 0}
                   </span>
                   <button
-                    onClick={() => setQuantity(Math.min(product.stock, quantity + 1))}
-                    className="px-3 py-2 hover:bg-[#F7F7F7] text-[#555555] cursor-pointer"
+                    onClick={() => setQuantity(prev => Math.min(product.stock, prev + 1))}
+                    disabled={!inStock || quantity >= product.stock}
+                    className="px-3 py-2 hover:bg-[#F7F7F7] text-[#555555] cursor-pointer disabled:text-[#CCCCCC] disabled:cursor-not-allowed"
                   >
                     <Plus className="w-3 h-3" />
                   </button>
@@ -261,16 +273,18 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ productId,
               <div className="grid grid-cols-2 gap-3">
                 <button
                   onClick={handleAddToCart}
-                  className="py-3 px-4 bg-[#FFF3E8] hover:bg-[#FFE6CF] text-[#FF6A00] text-xs font-bold rounded-lg transition-colors cursor-pointer flex items-center justify-center gap-1.5 border border-[#FF6A00]/30"
+                  disabled={!inStock}
+                  className="py-3 px-4 bg-[#FFF3E8] hover:bg-[#FFE6CF] text-[#FF6A00] text-xs font-bold rounded-lg transition-colors cursor-pointer flex items-center justify-center gap-1.5 border border-[#FF6A00]/30 disabled:bg-[#F3F3F3] disabled:text-[#AAAAAA] disabled:border-[#E5E5E5] disabled:cursor-not-allowed"
                 >
                   <ShoppingCart className="w-4 h-4" />
-                  <span>Add to Cart</span>
+                  <span>{inStock ? 'Add to Cart' : 'Sold out'}</span>
                 </button>
                 <button
                   onClick={handleBuyNow}
-                  className="py-3 px-4 bg-[#FF6A00] hover:bg-[#FF8A00] text-white text-xs font-bold rounded-lg transition-colors cursor-pointer shadow-sm flex items-center justify-center"
+                  disabled={!inStock}
+                  className="py-3 px-4 bg-[#FF6A00] hover:bg-[#FF8A00] text-white text-xs font-bold rounded-lg transition-colors cursor-pointer shadow-sm flex items-center justify-center disabled:bg-[#CCCCCC] disabled:cursor-not-allowed disabled:shadow-none"
                 >
-                  Buy Now (${(product.price * quantity).toFixed(2)})
+                  {inStock ? `Buy Now ($${(product.price * quantity).toFixed(2)})` : 'Unavailable'}
                 </button>
               </div>
             </div>

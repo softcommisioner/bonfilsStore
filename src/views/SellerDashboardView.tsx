@@ -5,7 +5,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../services/api';
-import type { Product, Order, Business } from '../types';
+import type { Product, Order, Business, Category } from '../types';
 
 interface SellerDashboardViewProps {
   onNavigate: (route: string) => void;
@@ -18,6 +18,7 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({ onNavi
   const [business, setBusiness] = useState<Business | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [metrics, setMetrics] = useState<any>({
     totalProducts: 0,
     totalOrders: 0,
@@ -32,7 +33,7 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({ onNavi
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [prodTitle, setProdTitle] = useState('');
   const [prodDesc, setProdDesc] = useState('');
-  const [prodCategory, setProdCategory] = useState('Consumer Electronics');
+  const [prodCategory, setProdCategory] = useState('');
   const [prodPrice, setProdPrice] = useState('');
   const [prodOriginalPrice, setProdOriginalPrice] = useState('');
   const [prodStock, setProdStock] = useState('20');
@@ -46,11 +47,15 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({ onNavi
   const fetchDashboardData = async () => {
     setIsLoading(true);
     try {
-      const data = await api.getSellerDashboard();
+      const [data, categoryList] = await Promise.all([
+        api.getSellerDashboard(),
+        api.getCategories().catch(() => [] as Category[]),
+      ]);
       setBusiness(data.business);
       setProducts(data.products || []);
       setOrders(data.orders || []);
       setMetrics(data.metrics || {});
+      setCategories(categoryList || []);
     } catch (err) {
       console.error('Error fetching seller dashboard', err);
     } finally {
@@ -66,7 +71,7 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({ onNavi
     setEditingProduct(null);
     setProdTitle('');
     setProdDesc('');
-    setProdCategory('Consumer Electronics');
+    setProdCategory(categories[0]?.name || '');
     setProdPrice('');
     setProdOriginalPrice('');
     setProdStock('20');
@@ -511,11 +516,12 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({ onNavi
                     onChange={(e) => setProdCategory(e.target.value)}
                     className="w-full px-3 py-2 border border-[#E5E5E5] rounded-lg focus:border-[#FF6A00] focus:outline-none bg-white"
                   >
-                    <option value="Consumer Electronics">Consumer Electronics</option>
-                    <option value="Security & Surveillance">Security & Surveillance</option>
-                    <option value="Industrial & Hardware">Industrial & Hardware</option>
-                    <option value="Commercial Kitchen & Cafe">Commercial Kitchen & Cafe</option>
-                    <option value="Solar & Energy">Solar & Energy</option>
+                    {categories.length === 0 && (
+                      <option value="">No categories available</option>
+                    )}
+                    {categories.map(category => (
+                      <option key={category.id} value={category.name}>{category.name}</option>
+                    ))}
                   </select>
                 </div>
 

@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 600" width="600" height="600" role="img" aria-label="Home &amp; Kitchen">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="hsl(158 72% 96%)"/>
+      <stop offset="100%" stop-color="hsl(186 68% 88%)"/>
+    </linearGradient>
+    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+      <path d="M40 0H0v40" fill="none" stroke="hsl(158 40% 80%)" stroke-width="1.5"/>
+    </pattern>
+  </defs>
+  <rect width="600" height="600" fill="url(#bg)"/>
+  <rect width="600" height="600" fill="url(#grid)"/>
+  <circle cx="300" cy="272" r="164" fill="hsl(158 70% 98%)" opacity="0.9"/>
+  <g style="color:hsl(158 62% 32%)"><path d="M168 268l132-112 132 112" fill="none" stroke="currentColor" stroke-width="10" stroke-linejoin="round"/>
+    <path d="M196 258v134h208V258" fill="none" stroke="currentColor" stroke-width="10" stroke-linejoin="round"/>
+    <path d="M272 392v-70h56v70" fill="none" stroke="currentColor" stroke-width="10" stroke-linejoin="round"/></g>
+  <text x="300" y="512" text-anchor="middle" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="42" font-weight="700" fill="hsl(158 62% 24%)">Home &amp; Kitchen</text>
+  <text x="300" y="556" text-anchor="middle" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="24" font-weight="500" letter-spacing="4" fill="hsl(158 40% 42%)">BONFILS STORE</text>
+</svg>

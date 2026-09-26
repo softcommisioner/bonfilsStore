@@ -54,7 +54,23 @@ export interface Product {
   shippingOrigin: string;
   shippingTimeDays: string;
   specifications: Record<string, string>;
+  isFeatured: boolean;
+  isActive: boolean;
   createdAt: string;
+  updatedAt: string;
+}
+
+export interface Category {
+  id: string;
+  name: string;
+  slug: string;
+  image?: string;
+  icon?: string;
+  description?: string;
+  sortOrder: number;
+  isActive: boolean;
+  createdAt: string;
+  productCount?: number;
 }
 
 export interface CartItem {
@@ -212,7 +228,7 @@ export interface AdminActivityLog {
   actorName: string;
   actorRole: string;
   action: string;
-  targetType: 'user' | 'product' | 'order' | 'china_request' | 'quotation' | 'seller' | 'auth';
+  targetType: 'user' | 'product' | 'order' | 'china_request' | 'quotation' | 'seller' | 'auth' | 'category' | 'shipping' | 'system';
   targetId?: string;
   details: string;
   timestamp: string;
@@ -223,10 +239,9 @@ export interface EmailRecord {
   to: string;
   subject: string;
   purpose: 'registration_otp' | 'login_otp' | 'password_reset_otp' | 'admin_otp' | 'china_request' | 'quotation_ready' | 'order_confirmation' | 'shipping_update';
-  otpCode?: string;
   html: string;
   sentAt: string;
-  status: 'sent' | 'delivered';
+  status: 'sent' | 'delivered' | 'failed';
 }
 
 export interface NotificationItem {
@@ -234,8 +249,44 @@ export interface NotificationItem {
   userId: string;
   title: string;
   message: string;
-  type: 'order' | 'china_request' | 'quotation' | 'system';
+  type: 'order' | 'china_request' | 'quotation' | 'system' | 'product';
   link?: string;
   read: boolean;
   createdAt: string;
+}
+
+export interface Paginated<T> {
+  items: T[];
+  total: number;
+  page: number;
+  pageSize: number;
+  pageCount: number;
+  hasMore: boolean;
+}
+
+export interface AdminStats {
+  totalUsers: number;
+  totalCustomers: number;
+  totalSellers: number;
+  totalStaff: number;
+  totalSuperAdmins: number;
+  totalBusinesses: number;
+  totalProducts: number;
+  activeProducts: number;
+  featuredProducts: number;
+  outOfStockProducts: number;
+  totalCategories: number;
+  totalOrders: number;
+  totalRevenue: number;
+  pendingOrders: number;
+  chinaRequestsCount: number;
+  activeChinaRequests: number;
+  activeShipments: number;
+  paidRevenue: number;
+  pendingPaymentOrders: number;
+  lowStockProducts: number;
+  latestOrders: Order[];
+  topProducts: Product[];
+  monthlyRevenue: Array<{ month: string; revenue: number; orders: number }>;
+  categoryBreakdown: Array<{ name: string; count: number }>;
 }

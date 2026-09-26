@@ -14,7 +14,7 @@ export const CategoriesView: React.FC<CategoriesViewProps> = ({ onSelectCategory
     const fetchCats = async () => {
       try {
         const data = await api.getCategories();
-        setCategories(data.categories || []);
+        setCategories(data || []);
       } catch (err) {
         console.error('Error fetching categories', err);
       } finally {

@@ -9,13 +9,11 @@ import { api } from '../services/api';
 interface AuthViewsProps {
   initialMode?: 'login' | 'register' | 'forgot_password';
   onNavigate: (route: string) => void;
-  onOtpAutoFillCode?: string;
 }
 
-export const AuthViews: React.FC<AuthViewsProps> = ({ 
-  initialMode = 'login', 
+export const AuthViews: React.FC<AuthViewsProps> = ({
+  initialMode = 'login',
   onNavigate,
-  onOtpAutoFillCode 
 }) => {
   const { login, verifyLoginOtp, register, verifyRegistrationOtp, resendOtp } = useAuth();
 
@@ -52,13 +50,6 @@ export const AuthViews: React.FC<AuthViewsProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
-
-  // Auto-fill OTP if passed from Email Drawer
-  useEffect(() => {
-    if (onOtpAutoFillCode) {
-      setOtpCode(onOtpAutoFillCode);
-    }
-  }, [onOtpAutoFillCode]);
 
   // Cooldown timer effect
   useEffect(() => {

@@ -1,6 +1,11 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import type { Product, CartItem } from '../types';
 
+const MAX_PER_ITEM = 20;
+// Must stay in sync with FREE_SHIPPING_THRESHOLD in server/routes/orders.ts
+const FREE_SHIPPING_THRESHOLD = 200;
+const SHIPPING_FEE = 5;
+
 interface CartContextType {
   items: CartItem[];
   addItem: (product: Product, quantity?: number, selectedColor?: string, selectedSize?: string) => void;
@@ -18,11 +23,22 @@ interface CartContextType {
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
+function sanitize(saved: CartItem[]): CartItem[] {
+  return (Array.isArray(saved) ? saved : [])
+    .filter(item => item && item.product && typeof item.product.id === 'string')
+    // Drop anything that is no longer purchasable so checkout never fails on stale data.
+    .filter(item => item.product.isActive !== false && item.product.stock > 0)
+    .map(item => ({
+      ...item,
+      quantity: Math.max(1, Math.min(item.product.stock, Math.min(MAX_PER_ITEM, item.quantity || 1))),
+    }));
+}
+
 export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [items, setItems] = useState<CartItem[]>(() => {
     try {
       const saved = localStorage.getItem('bonfils_cart');
-      return saved ? JSON.parse(saved) : [];
+      return saved ? sanitize(JSON.parse(saved)) : [];
     } catch {
       return [];
     }
@@ -39,19 +55,26 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [items]);
 
   const addItem = (product: Product, quantity: number = 1, selectedColor?: string, selectedSize?: string) => {
+    if (product.stock <= 0) {
+      return;
+    }
+    const requested = Math.max(1, Math.floor(quantity) || 1);
+    const cap = Math.max(1, Math.min(MAX_PER_ITEM, product.stock));
+
     setItems(prev => {
       const existingIndex = prev.findIndex(item => item.product.id === product.id);
       if (existingIndex > -1) {
         const next = [...prev];
         next[existingIndex] = {
           ...next[existingIndex],
-          quantity: Math.min(product.stock, next[existingIndex].quantity + quantity),
+          product,
+          quantity: Math.min(cap, next[existingIndex].quantity + requested),
           selectedColor: selectedColor || next[existingIndex].selectedColor,
           selectedSize: selectedSize || next[existingIndex].selectedSize,
         };
         return next;
       }
-      return [...prev, { product, quantity, selectedColor, selectedSize }];
+      return [...prev, { product, quantity: Math.min(cap, requested), selectedColor, selectedSize }];
     });
     setIsCartOpen(true);
   };
@@ -66,11 +89,11 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return;
     }
     setItems(prev =>
-      prev.map(item =>
-        item.product.id === productId
-          ? { ...item, quantity: Math.min(item.product.stock, quantity) }
-          : item
-      )
+      prev.map(item => {
+        if (item.product.id !== productId) return item;
+        const cap = Math.max(1, Math.min(MAX_PER_ITEM, item.product.stock));
+        return { ...item, quantity: Math.min(cap, Math.max(1, Math.floor(quantity))) };
+      }),
     );
   };
 
@@ -80,7 +103,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const itemCount = items.reduce((sum, item) => sum + item.quantity, 0);
   const subtotal = items.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
-  const shippingFee = subtotal > 100 || items.length === 0 ? 0 : 5;
+  const shippingFee = subtotal >= FREE_SHIPPING_THRESHOLD || items.length === 0 ? 0 : SHIPPING_FEE;
   const total = subtotal + shippingFee;
 
   // Group items by seller for multi-vendor checkout visibility

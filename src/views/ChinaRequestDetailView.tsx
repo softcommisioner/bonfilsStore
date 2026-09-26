@@ -22,7 +22,7 @@ export const ChinaRequestDetailView: React.FC<ChinaRequestDetailViewProps> = ({ 
     setIsLoading(true);
     try {
       const data = await api.getChinaRequest(requestId);
-      setRequest(data.request);
+      setRequest(data);
     } catch (err) {
       console.error('Error fetching China request', err);
     } finally {
