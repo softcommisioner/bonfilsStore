@@ -1,7 +1,7 @@
-import { config } from '../config';
-import { getStore } from '../db';
-import { newId } from '../security';
-import type { EmailRecord } from '../../src/types';
+import { config } from '../config.js';
+import { getStore } from '../db/index.js';
+import { newId } from '../security.js';
+import type { EmailRecord } from '../../src/types.js';
 
 type EmailPurpose = EmailRecord['purpose'];
 

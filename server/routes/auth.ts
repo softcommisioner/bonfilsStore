@@ -1,14 +1,14 @@
 import { Router } from 'express';
-import { config } from '../config';
-import { getStore } from '../db';
-import type { UserRecord } from '../db';
-import { logActivity, pushNotification, requireAuth } from '../middleware';
+import { config } from '../config.js';
+import { getStore } from '../db/index.js';
+import type { UserRecord } from '../db/index.js';
+import { logActivity, pushNotification, requireAuth } from '../middleware.js';
 import {
   clientKey, createSession, hashPassword, loginRateLimiter, newId, safeUser, verifyPassword,
-} from '../security';
+} from '../security.js';
 import {
   asyncHandler, consumeOtp, EMAIL_REGEX, issueOtp, normalizeEmail, publicUser, requireString,
-} from './helpers';
+} from './helpers.js';
 
 const router = Router();
 

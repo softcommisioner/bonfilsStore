@@ -1,9 +1,9 @@
 import type { NextFunction, Request, Response } from 'express';
-import { config } from './config';
-import { getStore } from './db';
-import type { Store, UserRecord } from './db';
-import type { AdminActivityLog, NotificationItem } from '../src/types';
-import { newId } from './security';
+import { config } from './config.js';
+import { getStore } from './db/index.js';
+import type { Store, UserRecord } from './db/index.js';
+import type { AdminActivityLog, NotificationItem } from '../src/types.js';
+import { newId } from './security.js';
 
 declare global {
   // eslint-disable-next-line @typescript-eslint/no-namespace

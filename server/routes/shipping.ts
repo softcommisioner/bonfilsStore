@@ -1,6 +1,6 @@
 import { Router } from 'express';
-import { getStore } from '../db';
-import { asyncHandler } from './helpers';
+import { getStore } from '../db/index.js';
+import { asyncHandler } from './helpers.js';
 
 const router = Router();
 

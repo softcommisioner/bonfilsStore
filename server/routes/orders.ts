@@ -1,11 +1,11 @@
 import { Router } from 'express';
-import { getStore } from '../db';
-import type { Order, OrderItem } from '../../src/types';
-import { logActivity, pushNotification, requireAuth } from '../middleware';
-import { newId, writeRateLimiter, clientKey } from '../security';
-import { sendEmail } from '../services/email';
-import { orderConfirmationEmailTemplate } from '../services/email-templates';
-import { asyncHandler, toNumber } from './helpers';
+import { getStore } from '../db/index.js';
+import type { Order, OrderItem } from '../../src/types.js';
+import { logActivity, pushNotification, requireAuth } from '../middleware.js';
+import { newId, writeRateLimiter, clientKey } from '../security.js';
+import { sendEmail } from '../services/email.js';
+import { orderConfirmationEmailTemplate } from '../services/email-templates.js';
+import { asyncHandler, toNumber } from './helpers.js';
 
 const router = Router();
 

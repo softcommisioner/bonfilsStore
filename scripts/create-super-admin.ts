@@ -5,12 +5,12 @@
  *
  * Credentials are never stored in the frontend and are never printed back.
  */
-import { getStore, initStore, runMigrations } from '../server/db';
-import { PostgresStore } from '../server/db/postgres-store';
-import { hashPassword } from '../server/security';
-import { config } from '../server/config';
-import type { UserRecord } from '../server/db';
-import type { UserRole } from '../src/types';
+import { getStore, initStore, runMigrations } from '../server/db/index.js';
+import { PostgresStore } from '../server/db/postgres-store.js';
+import { hashPassword } from '../server/security.js';
+import { config } from '../server/config.js';
+import type { UserRecord } from '../server/db/index.js';
+import type { UserRole } from '../src/types.js';
 
 function arg(name: string): string | undefined {
   const index = process.argv.indexOf(`--${name}`);

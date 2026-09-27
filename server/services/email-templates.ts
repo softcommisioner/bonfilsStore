@@ -1,4 +1,4 @@
-import type { ChinaRequest, Order, Quotation } from '../../src/types';
+import type { ChinaRequest, Order, Quotation } from '../../src/types.js';
 
 const BRAND = '#FF6A00';
 const INK = '#1F2933';

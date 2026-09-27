@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { callerScopedClient, SUPABASE_BUCKET, SupabaseNotConfiguredError } from './supabaseServer';
+import { callerScopedClient, SUPABASE_BUCKET, SupabaseNotConfiguredError } from './supabaseServer.js';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 /**

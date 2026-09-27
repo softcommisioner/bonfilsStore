@@ -1,7 +1,7 @@
 import { Router } from 'express';
-import { getStore } from '../db';
-import { requireAuth } from '../middleware';
-import { asyncHandler } from './helpers';
+import { getStore } from '../db/index.js';
+import { requireAuth } from '../middleware.js';
+import { asyncHandler } from './helpers.js';
 
 const router = Router();
 

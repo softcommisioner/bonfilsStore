@@ -1,12 +1,12 @@
 import fs from 'fs';
 import path from 'path';
-import { config } from '../config';
-import { MemoryStore } from './memory-store';
-import { PostgresStore } from './postgres-store';
-import { SCHEMA_SQL } from './schema';
-import type { Store } from './store';
+import { config } from '../config.js';
+import { MemoryStore } from './memory-store.js';
+import { PostgresStore } from './postgres-store.js';
+import { SCHEMA_SQL } from './schema.js';
+import type { Store } from './store.js';
 
-export * from './store';
+export * from './store.js';
 
 let storeInstance: Store | null = null;
 let initPromise: Promise<Store> | null = null;

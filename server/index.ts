@@ -1,5 +1,5 @@
-import { config } from './config';
-import { bootstrap } from './app';
+import { config } from './config.js';
+import { bootstrap } from './app.js';
 
 const isDirectRun = Boolean(process.argv[1] && /(^|[\\/])server([\\/]index)?\.ts$/.test(process.argv[1]));
 

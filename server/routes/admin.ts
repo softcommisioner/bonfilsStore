@@ -1,15 +1,15 @@
 import { Router } from 'express';
-import { config } from '../config';
-import { getStore } from '../db';
-import type { UserRecord } from '../db';
-import type { AdminStats, Product } from '../../src/types';
-import { logActivity, pushNotification, requireAdmin } from '../middleware';
-import { adminRateLimiter, clientKey, createSession, hashPassword, newId, verifyPassword } from '../security';
+import { config } from '../config.js';
+import { getStore } from '../db/index.js';
+import type { UserRecord } from '../db/index.js';
+import type { AdminStats, Product } from '../../src/types.js';
+import { logActivity, pushNotification, requireAdmin } from '../middleware.js';
+import { adminRateLimiter, clientKey, createSession, hashPassword, newId, verifyPassword } from '../security.js';
 import {
   asyncHandler, consumeOtp, EMAIL_REGEX, issueOtp, normalizeEmail, publicUser, resolveCategoryName, toNumber,
-} from './helpers';
-import { sendEmail } from '../services/email';
-import { uploadImage, UploadError } from '../services/upload';
+} from './helpers.js';
+import { sendEmail } from '../services/email.js';
+import { uploadImage, UploadError } from '../services/upload.js';
 
 const router = Router();
 

@@ -1,19 +1,19 @@
 import express, { type Express, type NextFunction, type Request, type Response } from 'express';
 import fs from 'fs';
 import path from 'path';
-import { config } from './config';
-import { getStore, initStore } from './db';
-import { attachStore, authenticateToken } from './middleware';
-import adminRoutes from './routes/admin';
-import authRoutes from './routes/auth';
-import catalogRoutes from './routes/catalog';
-import chinaRoutes from './routes/china';
-import notificationRoutes from './routes/notifications';
-import orderRoutes from './routes/orders';
-import sellerRoutes from './routes/seller';
-import shippingRoutes from './routes/shipping';
-import { runSeed } from './seed/seed';
-import { UploadError } from './services/upload';
+import { config } from './config.js';
+import { getStore, initStore } from './db/index.js';
+import { attachStore, authenticateToken } from './middleware.js';
+import adminRoutes from './routes/admin.js';
+import authRoutes from './routes/auth.js';
+import catalogRoutes from './routes/catalog.js';
+import chinaRoutes from './routes/china.js';
+import notificationRoutes from './routes/notifications.js';
+import orderRoutes from './routes/orders.js';
+import sellerRoutes from './routes/seller.js';
+import shippingRoutes from './routes/shipping.js';
+import { runSeed } from './seed/seed.js';
+import { UploadError } from './services/upload.js';
 
 export function createServer(): Express {
   const app = express();

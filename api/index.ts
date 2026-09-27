@@ -1,5 +1,5 @@
 import type { NextFunction, Request, Response } from 'express';
-import { bootstrap } from '../server/app';
+import { bootstrap } from '../server/app.js';
 
 /**
  * Vercel serverless entry point. The Express app is created once per cold

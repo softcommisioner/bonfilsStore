@@ -1,10 +1,10 @@
 import type { NextFunction, Request, RequestHandler, Response } from 'express';
-import { getStore } from '../db';
-import type { OtpPurpose, OtpRecord, UserRecord } from '../db';
-import { generateOtp, hashOtp, maskEmail, newId, otpRateLimiter, clientKey, verifyOtpHash } from '../security';
-import { config } from '../config';
-import { sendEmail } from '../services/email';
-import { otpEmailTemplate } from '../services/email-templates';
+import { getStore } from '../db/index.js';
+import type { OtpPurpose, OtpRecord, UserRecord } from '../db/index.js';
+import { generateOtp, hashOtp, maskEmail, newId, otpRateLimiter, clientKey, verifyOtpHash } from '../security.js';
+import { config } from '../config.js';
+import { sendEmail } from '../services/email.js';
+import { otpEmailTemplate } from '../services/email-templates.js';
 
 export function asyncHandler(handler: (req: Request, res: Response, next: NextFunction) => Promise<unknown>): RequestHandler {
   return (req, res, next) => {

@@ -6,14 +6,16 @@
   "scripts": {
     "dev": "tsx server/index.ts",
     "dev:client": "vite",
-    "build": "vite build",
+    "build": "vite build && npm run build:server",
+    "build:server": "node scripts/build-function.mjs",
     "start": "tsx server/index.ts",
     "preview": "vite preview",
     "seed": "tsx server/seed/seed.ts",
     "superadmin:create": "tsx scripts/create-super-admin.ts",
     "images:categories": "node scripts/generate-category-images.mjs",
-    "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\"",
-    "lint": "tsc --noEmit"
+    "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true});require('fs').rmSync('dist-server',{recursive:true,force:true})\"",
+    "lint": "tsc --noEmit && npm run lint:server",
+    "lint:server": "tsc -p tsconfig.server.json"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",

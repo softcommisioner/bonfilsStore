@@ -1,9 +1,9 @@
 import { Router } from 'express';
-import { getStore } from '../db';
-import type { Product } from '../../src/types';
-import { logActivity, requireAuth, requireRole } from '../middleware';
-import { clientKey, newId, writeRateLimiter } from '../security';
-import { asyncHandler, resolveCategoryName, toNumber } from './helpers';
+import { getStore } from '../db/index.js';
+import type { Product } from '../../src/types.js';
+import { logActivity, requireAuth, requireRole } from '../middleware.js';
+import { clientKey, newId, writeRateLimiter } from '../security.js';
+import { asyncHandler, resolveCategoryName, toNumber } from './helpers.js';
 
 const router = Router();
 

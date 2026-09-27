@@ -1,7 +1,7 @@
 import { put } from '@vercel/blob';
-import { config } from '../config';
-import { getStore } from '../db';
-import { newId } from '../security';
+import { config } from '../config.js';
+import { getStore } from '../db/index.js';
+import { newId } from '../security.js';
 
 const ALLOWED_MIME = new Set([
   'image/jpeg',

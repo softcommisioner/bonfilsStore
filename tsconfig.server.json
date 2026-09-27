@@ -1,0 +1,29 @@
+{
+  "$comment": [
+    "Serverless build guard. The root tsconfig.json uses moduleResolution 'bundler'",
+    "because Vite resolves extensionless imports at build time. That is correct for",
+    "the browser bundle and wrong for api/index.ts, which Vercel compiles to real ESM:",
+    "Node's ESM resolver does no extension guessing and no directory-index lookup, so",
+    "an extensionless import survives compilation and then throws ERR_MODULE_NOT_FOUND",
+    "at cold start, 500ing every /api route.",
+    "",
+    "This config re-checks api/, server/ and scripts/ under NodeNext, which makes",
+    "'./db' and '../server/app' hard compile errors instead of runtime 500s.",
+    "Run via: npm run lint:server"
+  ],
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "lib": ["ES2022"],
+    "types": ["node"],
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+    "isolatedModules": true,
+    "moduleDetection": "force",
+    "noEmit": true
+  },
+  "include": ["api/**/*.ts", "server/**/*.ts", "scripts/**/*.ts", "src/types.ts"]
+}

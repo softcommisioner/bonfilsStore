@@ -2,13 +2,13 @@ import { Pool, type PoolClient } from 'pg';
 import type {
   Business, Product, Order, ChinaRequest, ShippingOrder, Category,
   AdminActivityLog, EmailRecord, NotificationItem
-} from '../../src/types';
+} from '../../src/types.js';
 import {
   InsufficientStockError,
   type ChinaRequestQuery, type MediaRecord, type OrderQuery,
   type OtpPurpose, type OtpRecord, type ProductPage, type ProductQuery,
   type SessionRecord, type Store, type UserRecord
-} from './store';
+} from './store.js';
 
 type Row = Record<string, any>;
 

@@ -1,8 +1,8 @@
 import crypto from 'crypto';
 import { promisify } from 'util';
-import { config } from './config';
-import { getStore } from './db';
-import type { SessionAudience, UserRecord } from './db';
+import { config } from './config.js';
+import { getStore } from './db/index.js';
+import type { SessionAudience, UserRecord } from './db/index.js';
 
 const scrypt = promisify(crypto.scrypt) as (
   password: string,

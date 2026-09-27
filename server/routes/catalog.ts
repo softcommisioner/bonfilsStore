@@ -1,8 +1,8 @@
 import { Router } from 'express';
-import { config } from '../config';
-import { getStore } from '../db';
-import { readDataUrl, uploadImage, UploadError } from '../services/upload';
-import { asyncHandler, toNumber } from './helpers';
+import { config } from '../config.js';
+import { getStore } from '../db/index.js';
+import { readDataUrl, uploadImage, UploadError } from '../services/upload.js';
+import { asyncHandler, toNumber } from './helpers.js';
 
 const router = Router();
 

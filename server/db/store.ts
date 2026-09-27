@@ -1,7 +1,7 @@
 import type {
   User, Business, Product, Order, ChinaRequest, ShippingOrder,
   AdminActivityLog, EmailRecord, NotificationItem, Category
-} from '../../src/types';
+} from '../../src/types.js';
 
 export type UserRecord = User & { passwordHash: string; passwordSalt: string };
 

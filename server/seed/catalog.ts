@@ -1,5 +1,5 @@
-import type { Business, Category, Product, UserRole } from '../../src/types';
-import type { UserRecord } from '../db';
+import type { Business, Category, Product, UserRole } from '../../src/types.js';
+import type { UserRecord } from '../db/index.js';
 
 const NOW = Date.parse('2026-01-05T09:00:00.000Z');
 const day = 24 * 60 * 60 * 1000;

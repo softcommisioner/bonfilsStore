@@ -1,12 +1,12 @@
-import { config } from '../config';
-import type { Store, UserRecord } from '../db';
-import { getStore, initStore } from '../db';
-import { hashPassword } from '../security';
-import type { Category, Product } from '../../src/types';
+import { config } from '../config.js';
+import type { Store, UserRecord } from '../db/index.js';
+import { getStore, initStore } from '../db/index.js';
+import { hashPassword } from '../security.js';
+import type { Category, Product } from '../../src/types.js';
 import {
   buildDemoUser, CATEGORY_RENAMES, demoUsers, remapCategoryImageUrls, RETIRED_CATEGORIES,
   seedBusinesses, seedCategories, seedProducts,
-} from './catalog';
+} from './catalog.js';
 
 function log(message: string) {
   console.log(`[seed] ${message}`);

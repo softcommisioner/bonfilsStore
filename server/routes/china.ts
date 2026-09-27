@@ -1,11 +1,11 @@
 import { Router } from 'express';
-import { getStore } from '../db';
-import type { ChinaRequest, ChinaRequestStatus, Quotation } from '../../src/types';
-import { logActivity, requireAuth, requireRole } from '../middleware';
-import { newId, writeRateLimiter, clientKey } from '../security';
-import { sendEmail } from '../services/email';
-import { chinaRequestEmailTemplate, quotationEmailTemplate } from '../services/email-templates';
-import { asyncHandler, EMAIL_REGEX, normalizeEmail, toNumber } from './helpers';
+import { getStore } from '../db/index.js';
+import type { ChinaRequest, ChinaRequestStatus, Quotation } from '../../src/types.js';
+import { logActivity, requireAuth, requireRole } from '../middleware.js';
+import { newId, writeRateLimiter, clientKey } from '../security.js';
+import { sendEmail } from '../services/email.js';
+import { chinaRequestEmailTemplate, quotationEmailTemplate } from '../services/email-templates.js';
+import { asyncHandler, EMAIL_REGEX, normalizeEmail, toNumber } from './helpers.js';
 
 const router = Router();
 
