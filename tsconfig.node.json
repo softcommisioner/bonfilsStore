@@ -1,0 +1,26 @@
+{
+  "$comment": [
+    "Node-side build tooling: vite.config.ts. Kept separate from the browser program in",
+    "tsconfig.json because it is executed by Node, not shipped to the browser, and it needs",
+    "both Vite's own types and Node's globals (__dirname, process, path). Putting it in the",
+    "DOM project forced that project to depend on 'vite/client' types, which is what made",
+    "type-checking fail with TS2688 on a build where vite was not resolvable.",
+    "Run via: npm run lint:node"
+  ],
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": ["ES2022"],
+    "types": ["node"],
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+    "isolatedModules": true,
+    "moduleDetection": "force",
+    "strict": false,
+    "noEmit": true
+  },
+  "include": ["vite.config.ts"]
+}

@@ -11,7 +11,12 @@
     "the same ImportMetaEnv types, so the entry in 'types' was redundant as well as unsafe.",
     "",
     "include is explicit so generated bundles in dist/ and dist-server/ are never pulled",
-    "into the program; checking minified output is order-dependent and only fails on CI."
+    "into the program; checking minified output is order-dependent and only fails on CI.",
+    "",
+    "This program is browser-only and needs nothing from Vite or Node to type-check:",
+    "src/vite-env.d.ts declares the import.meta.env keys and stylesheet imports itself.",
+    "vite.config.ts is a Node build script, so it is checked by tsconfig.node.json",
+    "instead of being dragged into a DOM project that cannot type it correctly."
   ],
   "compilerOptions": {
     "target": "ES2022",
@@ -37,6 +42,6 @@
     "allowImportingTsExtensions": true,
     "noEmit": true
   },
-  "include": ["src", "vite.config.ts"],
+  "include": ["src"],
   "exclude": ["dist", "dist-server"]
 }

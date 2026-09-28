@@ -14,8 +14,9 @@
     "superadmin:create": "tsx scripts/create-super-admin.ts",
     "images:categories": "node scripts/generate-category-images.mjs",
     "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true});require('fs').rmSync('dist-server',{recursive:true,force:true})\"",
-    "lint": "tsc --noEmit && npm run lint:server",
-    "lint:server": "tsc -p tsconfig.server.json"
+    "lint": "tsc --noEmit && npm run lint:server && npm run lint:node",
+    "lint:server": "tsc -p tsconfig.server.json",
+    "lint:node": "tsc -p tsconfig.node.json"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",
