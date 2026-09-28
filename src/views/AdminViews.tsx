@@ -201,7 +201,7 @@ function AdminGate({ onVerified, onCancel }: { onVerified: (user: User) => void;
                 value={email}
                 onChange={e => setEmail(e.target.value)}
                 className={inputClass}
-                placeholder="admin@bonfilsstore.com"
+                placeholder="iranzibonfils9@gmail.com"
               />
             </div>
             <div>
