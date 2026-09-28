@@ -77,53 +77,21 @@ async function deliverWithSmtp(params: SendParams): Promise<DeliveryResult> {
   }
 }
 
-async function deliverWithResend(params: SendParams): Promise<DeliveryResult> {
-  if (!config.resendApiKey) return { delivered: false, detail: 'RESEND_API_KEY not configured' };
-  try {
-    const response = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${config.resendApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        from: config.emailFrom,
-        to: [params.to],
-        subject: params.subject,
-        html: params.html,
-        reply_to: params.replyTo,
-      }),
-    });
-    if (!response.ok) {
-      const body = await response.text();
-      return { delivered: false, transport: 'resend', detail: `Resend ${response.status}: ${body.slice(0, 200)}` };
-    }
-    return { delivered: true, transport: 'resend' };
-  } catch (error) {
-    return { delivered: false, transport: 'resend', detail: (error as Error).message };
-  }
-}
-
-/** Probes the configured relay so deploys can prove mail works. */
+/** Probes the Gmail relay so deploys can prove mail works. */
 export async function verifyEmailTransport(): Promise<{ ok: boolean; transport: string; detail: string }> {
-  if (config.isSmtpConfigured) {
-    try {
-      await getSmtpTransport().verify();
-      return { ok: true, transport: 'smtp', detail: `${config.gmailSmtpHost}:${config.gmailSmtpPort} as ${config.gmailUser}` };
-    } catch (error) {
-      return { ok: false, transport: 'smtp', detail: (error as Error).message };
-    }
+  if (!config.isSmtpConfigured) {
+    return { ok: false, transport: 'none', detail: 'GMAIL_USER/GMAIL_APP_PASSWORD not configured' };
   }
-  if (config.resendApiKey) {
-    return { ok: true, transport: 'resend', detail: 'RESEND_API_KEY present' };
+  try {
+    await getSmtpTransport().verify();
+    return { ok: true, transport: 'smtp', detail: `${config.gmailSmtpHost}:${config.gmailSmtpPort} as ${config.gmailUser}` };
+  } catch (error) {
+    return { ok: false, transport: 'smtp', detail: (error as Error).message };
   }
-  return { ok: false, transport: 'none', detail: 'no GMAIL_USER/GMAIL_APP_PASSWORD or RESEND_API_KEY configured' };
 }
 
 export async function sendEmail(params: SendParams): Promise<EmailRecord> {
-  const result = config.isSmtpConfigured
-    ? await deliverWithSmtp(params)
-    : await deliverWithResend(params);
+  const result = await deliverWithSmtp(params);
 
   if (!result.delivered) {
     // Never fatal: the OTP is already persisted, so a relay outage degrades to
@@ -151,5 +119,5 @@ export async function sendEmail(params: SendParams): Promise<EmailRecord> {
 }
 
 export function isEmailDeliveryConfigured(): boolean {
-  return Boolean(config.isSmtpConfigured || config.resendApiKey);
+  return config.isSmtpConfigured;
 }

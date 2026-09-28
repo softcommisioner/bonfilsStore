@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { config } from '../config.js';
 import { getStore } from '../db/index.js';
+import { isEmailDeliveryConfigured } from '../services/email.js';
 import { readDataUrl, uploadImage, UploadError } from '../services/upload.js';
 import { asyncHandler, toNumber } from './helpers.js';
 
@@ -153,7 +154,7 @@ router.get('/health', asyncHandler(async (_req, res) => {
     success: true,
     status: 'ok',
     storage: store.kind,
-    emailDelivery: Boolean(config.resendApiKey),
+    emailDelivery: isEmailDeliveryConfigured(),
     blobStorage: Boolean(config.blobToken),
     timestamp: new Date().toISOString(),
   });

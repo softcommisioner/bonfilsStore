@@ -702,10 +702,9 @@ router.get('/emails', requireAdmin, asyncHandler(async (req, res) => {
       status: email.status,
       sentAt: email.sentAt,
     })),
-    // Was hardcoded to the Resend key, so the panel reported "not configured"
-    // even with a fully working Gmail transport. Ask the mail service instead.
-    deliveryConfigured: isEmailDeliveryConfigured(),
-  });
+    // Asks the mail service, so the panel reflects the transport actually in
+    // use rather than any single provider's key.
+    deliveryConfigured: isEmailDeliveryConfigured(),  });
 }));
 
 router.post('/uploads', requireAdmin, asyncHandler(async (req, res) => {

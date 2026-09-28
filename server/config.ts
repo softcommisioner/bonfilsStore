@@ -48,10 +48,6 @@ const GMAIL_SMTP_PORT = 465;
 // per-deploy setting that could produce an undeliverable message.
 const EMAIL_BRAND = 'BonfilsStore';
 
-// From for the non-Gmail fallback relay, which can legitimately send from a
-// verified domain. Kept as a constant so the Gmail path stays at two variables.
-const FALLBACK_FROM = 'BONFILS STORE <notifications@bonfilsstore.com>';
-
 export const config = {
   env: process.env.NODE_ENV || 'development',
   isProduction: (process.env.NODE_ENV || 'development') === 'production',
@@ -59,8 +55,6 @@ export const config = {
   appUrl: firstDefined(process.env.APP_URL) || 'http://localhost:3000',
   databaseUrl,
   isServerless: Boolean(process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME),
-  resendApiKey: firstDefined(process.env.RESEND_API_KEY),
-  emailFrom: FALLBACK_FROM,
   emailBrand: EMAIL_BRAND,
   gmailSmtpHost: GMAIL_SMTP_HOST,
   gmailSmtpPort: GMAIL_SMTP_PORT,
