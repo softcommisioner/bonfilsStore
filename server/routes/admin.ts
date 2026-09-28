@@ -8,7 +8,7 @@ import { adminRateLimiter, clientKey, createSession, hashPassword, newId, verify
 import {
   asyncHandler, consumeOtp, EMAIL_REGEX, issueOtp, normalizeEmail, publicUser, resolveCategoryName, toNumber,
 } from './helpers.js';
-import { sendEmail } from '../services/email.js';
+import { sendEmail, isEmailDeliveryConfigured } from '../services/email.js';
 import { uploadImage, UploadError } from '../services/upload.js';
 
 const router = Router();
@@ -702,7 +702,9 @@ router.get('/emails', requireAdmin, asyncHandler(async (req, res) => {
       status: email.status,
       sentAt: email.sentAt,
     })),
-    deliveryConfigured: Boolean(config.resendApiKey),
+    // Was hardcoded to the Resend key, so the panel reported "not configured"
+    // even with a fully working Gmail transport. Ask the mail service instead.
+    deliveryConfigured: isEmailDeliveryConfigured(),
   });
 }));
 

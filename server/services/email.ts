@@ -26,14 +26,16 @@ let smtpTransport: Transporter | null = null;
 function getSmtpTransport(): Transporter {
   if (smtpTransport) return smtpTransport;
   smtpTransport = nodemailer.createTransport({
-    host: config.emailHost,
-    port: config.emailPort,
-    // Implicit TLS on 465, STARTTLS on 587. `requireTLS` refuses to downgrade
-    // to plaintext if the server does not offer STARTTLS, so a misconfigured
-    // port fails loudly instead of leaking a code in clear text.
-    secure: config.emailSecure,
-    requireTLS: !config.emailSecure,
-    auth: { user: config.emailUser, pass: config.emailPass },
+    // Pinned to Gmail over implicit TLS. `secure: true` means the TLS handshake
+    // happens before any credential is written to the socket, and `requireTLS`
+    // keeps that true even if a future refactor relaxes `secure`, so a
+    // misconfiguration fails loudly instead of leaking a password or a one-time
+    // code in clear text.
+    host: config.gmailSmtpHost,
+    port: config.gmailSmtpPort,
+    secure: true,
+    requireTLS: true,
+    auth: { user: config.gmailUser, pass: config.gmailAppPassword },
     // Deliberately not pooled. A lambda that is frozen between requests would
     // otherwise keep a warm socket that can go stale, which shows up as email
     // that works for a while and then silently stops. One connection per send
@@ -48,22 +50,19 @@ function getSmtpTransport(): Transporter {
 }
 
 /**
- * Gmail only accepts mail From: the authenticated mailbox (or a verified
- * alias). The marketing default (notifications@bonfilsstore.com) is a different
- * domain entirely and would be rejected with a 550, so unless the operator
- * deliberately set EMAIL_FROM the SMTP path derives its own header from
- * EMAIL_USER.
+ * Gmail only accepts mail From: the authenticated mailbox (or a verified alias
+ * on that account), so the header is always derived from GMAIL_USER. The
+ * notifications@bonfilsstore.com marketing address is a different domain and
+ * would be rejected with a 550, which is why it is reserved for the fallback
+ * relay rather than used here.
  */
 export function resolveFromAddress(): string {
-  if (config.isSmtpConfigured && !config.emailFromExplicit) {
-    const name = config.emailFromName.replace(/["\\]/g, '');
-    return `"${name}" <${config.emailUser}>`;
-  }
-  return config.emailFrom;
+  const name = config.emailBrand.replace(/["\\]/g, '');
+  return `"${name}" <${config.gmailUser}>`;
 }
 
 async function deliverWithSmtp(params: SendParams): Promise<DeliveryResult> {
-  if (!config.isSmtpConfigured) return { delivered: false, detail: 'EMAIL_HOST/EMAIL_USER/EMAIL_PASS not configured' };
+  if (!config.isSmtpConfigured) return { delivered: false, detail: 'GMAIL_USER/GMAIL_APP_PASSWORD not configured' };
   try {
     const info = await getSmtpTransport().sendMail({
       from: resolveFromAddress(),
@@ -110,7 +109,7 @@ export async function verifyEmailTransport(): Promise<{ ok: boolean; transport: 
   if (config.isSmtpConfigured) {
     try {
       await getSmtpTransport().verify();
-      return { ok: true, transport: 'smtp', detail: `${config.emailHost}:${config.emailPort} as ${config.emailUser}` };
+      return { ok: true, transport: 'smtp', detail: `${config.gmailSmtpHost}:${config.gmailSmtpPort} as ${config.gmailUser}` };
     } catch (error) {
       return { ok: false, transport: 'smtp', detail: (error as Error).message };
     }
@@ -118,7 +117,7 @@ export async function verifyEmailTransport(): Promise<{ ok: boolean; transport: 
   if (config.resendApiKey) {
     return { ok: true, transport: 'resend', detail: 'RESEND_API_KEY present' };
   }
-  return { ok: false, transport: 'none', detail: 'no EMAIL_* or RESEND_API_KEY configured' };
+  return { ok: false, transport: 'none', detail: 'no GMAIL_USER/GMAIL_APP_PASSWORD or RESEND_API_KEY configured' };
 }
 
 export async function sendEmail(params: SendParams): Promise<EmailRecord> {

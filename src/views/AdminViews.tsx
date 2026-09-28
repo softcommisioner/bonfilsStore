@@ -1111,8 +1111,8 @@ export const AdminViews: React.FC<AdminViewsProps> = ({ onNavigate }) => {
           <Panel title="Email delivery (metadata only)">
             <div className={`rounded-lg border px-3 py-2 text-[11px] mb-3 ${emailLog.deliveryConfigured ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300' : 'border-[#FF6A00]/30 bg-[#FF6A00]/10 text-[#FF6A00]'}`}>
               {emailLog.deliveryConfigured
-                ? 'Resend is configured: messages are being delivered and recorded.'
-                : 'Resend is not configured. Set RESEND_API_KEY and EMAIL_FROM so codes and updates can be delivered.'}
+                ? 'A mail transport is configured: messages are being delivered and recorded.'
+                : 'No mail transport is configured. Set GMAIL_USER and GMAIL_APP_PASSWORD so codes and updates can be delivered.'}
             </div>
             <ul className="space-y-1.5">
               {emailLog.emails.map(email => (

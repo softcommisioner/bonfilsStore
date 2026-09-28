@@ -1,10 +1,23 @@
 {
+  "$comment": [
+    "Browser/client project. api/, server/ and scripts/ are type-checked separately by",
+    "tsconfig.server.json under NodeNext, which is the stricter resolver that catches",
+    "extensionless ESM imports before they turn into runtime 500s.",
+    "",
+    "vite/client is deliberately NOT in compilerOptions.types. A 'types' array replaces",
+    "TypeScript's automatic @types inclusion, so it both hides the other @types packages",
+    "and makes this project fail with TS2688 if vite cannot be resolved. src/vite-env.d.ts",
+    "already carries the canonical '/// <reference types=\"vite/client\" />', which supplies",
+    "the same ImportMetaEnv types, so the entry in 'types' was redundant as well as unsafe.",
+    "",
+    "include is explicit so generated bundles in dist/ and dist-server/ are never pulled",
+    "into the program; checking minified output is order-dependent and only fails on CI."
+  ],
   "compilerOptions": {
     "target": "ES2022",
     "experimentalDecorators": true,
     "useDefineForClassFields": false,
     "module": "ESNext",
-    "types": ["vite/client"],
     "lib": [
       "ES2022",
       "DOM",
@@ -23,5 +36,7 @@
     },
     "allowImportingTsExtensions": true,
     "noEmit": true
-  }
+  },
+  "include": ["src", "vite.config.ts"],
+  "exclude": ["dist", "dist-server"]
 }

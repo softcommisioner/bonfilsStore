@@ -6,11 +6,13 @@ const INK = '#1F2933';
 const MUTED = '#6B7280';
 
 /**
- * Display name for the sender, driven by EMAIL_FROM_NAME so the brand stays in
- * one place. Falls back to the storefront name if config is unavailable.
+ * Sender display name. Deliberately not an env var: Gmail requires the From
+ * header to name the authenticated mailbox, so letting the brand drift per
+ * environment would only produce mail that Gmail refuses. Falls back to the
+ * storefront name if config is unavailable.
  */
 function brandName(): string {
-  return config.emailFromName || 'BonfilsStore';
+  return config.emailBrand || 'BonfilsStore';
 }
 
 export function escapeHtml(value: unknown): string {
