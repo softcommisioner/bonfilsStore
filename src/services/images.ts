@@ -1,45 +1,20 @@
+import { useCallback, useEffect, useState } from 'react';
 import type { Product } from '../types';
 
-const CATEGORY_IMAGE_SLUG: Record<string, string> = {
-  'Laptops & Computers': 'laptops-computers',
-  'CCTV & Security': 'cctv-security',
-  'Motorcycles & Accessories': 'motorcycles-accessories',
-  'Beauty & Cosmetics': 'beauty-cosmetics',
-  Electronics: 'electronics',
-  'Phones & Tablets': 'phones-tablets',
-  'Smart Home & IoT': 'smart-home-iot',
-  Networking: 'networking',
-  'Solar & Electrical': 'solar-electrical',
-  'Home & Kitchen': 'home-kitchen',
-  Fashion: 'fashion',
-  'Tools & Hardware': 'tools-hardware',
-};
-
-export function categorySlug(category: string): string {
-  return CATEGORY_IMAGE_SLUG[category] || category.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-}
-
-export function categoryImage(category?: string): string {
-  if (!category) return inlinePlaceholder('BONFILS STORE');
-  return `/images/categories/${categorySlug(category)}.svg`;
-}
-
-function inlinePlaceholder(label: string): string {
-  const text = (label || 'BONFILS').slice(0, 26);
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 600">
-    <rect width="600" height="600" fill="#FFF7ED"/>
-    <rect x="140" y="200" width="320" height="200" rx="24" fill="none" stroke="#FF6A00" stroke-width="8"/>
-    <circle cx="300" cy="276" r="34" fill="none" stroke="#FF6A00" stroke-width="8"/>
-    <path d="M200 372l70-64 46 40 34-28 50 44" fill="none" stroke="#FF6A00" stroke-width="8" stroke-linecap="round"/>
-    <text x="300" y="450" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="34" font-weight="700" fill="#9A3412">${text.replace(/[<>&"']/g, '')}</text>
-  </svg>`;
-  return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
-}
-
-export function placeholderFor(product?: Pick<Product, 'title' | 'category'> | null): string {
-  if (product?.category) return categoryImage(product.category);
-  return inlinePlaceholder(product?.title || 'BONFILS STORE');
-}
+/**
+ * Imagery resolution for the storefront.
+ *
+ * The API is the single source of truth: a product's photos arrive in
+ * `images[]` (written by the admin/seller upload endpoints, which store the
+ * file on Vercel Blob or the media table and persist the public URL). Some
+ * upstream feeds expose a single `image` / `imageUrl` string instead, so those
+ * aliases are accepted too.
+ *
+ * The resolver builds an ordered candidate list and returns the next entry on
+ * every load error, so a dead or blocked URL can never strand a card on a
+ * broken image. The last candidate is a neutral tile - never the old category
+ * line illustration, which made every seeded product look like a placeholder.
+ */
 
 const RENAMED_LEGACY_ASSETS: Record<string, string> = {
   'product_cctv_camera_1790334796559.jpg': '/images/products/cctv-camera.jpg',
@@ -48,10 +23,12 @@ const RENAMED_LEGACY_ASSETS: Record<string, string> = {
   'hero_logistics_marketplace_1790334780179.jpg': '/images/products/logistics-freight.jpg',
 };
 
-function normalizeImageUrl(
-  raw: string | undefined | null,
-  product?: Pick<Product, 'title' | 'category'> | null,
-): string | null {
+/** Loose shape so we can read the single-image aliases off any API payload. */
+export type ProductImageSource = Partial<
+  Pick<Product, 'images' | 'title' | 'category'> & { image?: string; imageUrl?: string; thumbnail?: string }
+>;
+
+function normalizeImageUrl(raw: unknown): string | null {
   if (typeof raw !== 'string') return null;
   const value = raw.trim();
   if (!value) return null;
@@ -63,34 +40,34 @@ function normalizeImageUrl(
   return value.startsWith('/') ? value : `/${value}`;
 }
 
-/**
- * Ordered list of image URLs to try for a product: its own photos first, then
- * the category artwork, then an inline SVG. Consumers walk the list with
- * `nextProductImage()` on every load error, so a missing file can never strand
- * the UI on a broken image.
- */
-export function productImageCandidates(
-  product: Pick<Product, 'images' | 'title' | 'category'> | null | undefined,
-): string[] {
-  const candidates: string[] = [];
-  for (const raw of product?.images || []) {
-    const url = normalizeImageUrl(raw, product);
-    if (url) candidates.push(url);
+/** Every image URL the API gave us, in order, de-duplicated. */
+export function productImageUrls(product: ProductImageSource | null | undefined): string[] {
+  if (!product) return [];
+  const raw: unknown[] = [
+    ...(Array.isArray(product.images) ? product.images : []),
+    product.image,
+    product.imageUrl,
+    product.thumbnail,
+  ];
+  const urls: string[] = [];
+  for (const entry of raw) {
+    const url = normalizeImageUrl(entry);
+    if (url) urls.push(url);
   }
-  if (product?.category) candidates.push(categoryImage(product.category));
-  candidates.push(inlinePlaceholder(product?.title || product?.category || 'BONFILS STORE'));
+  return [...new Set(urls)];
+}
 
-  const seen = new Set<string>();
-  return candidates.filter(url => {
-    if (seen.has(url)) return false;
-    seen.add(url);
-    return true;
-  });
+/**
+ * Ordered list of image URLs to try, ending in a neutral placeholder. Consumers
+ * advance through the list with `advanceProductImage()` on every load error.
+ */
+export function productImageCandidates(product: ProductImageSource | null | undefined): string[] {
+  return [...productImageUrls(product), neutralPlaceholder()];
 }
 
 /** Resolves a usable image URL, transparently repairing legacy src/ asset paths. */
 export function resolveProductImage(
-  product: Pick<Product, 'images' | 'title' | 'category'> | null | undefined,
+  product: ProductImageSource | null | undefined,
   index = 0,
 ): string {
   const candidates = productImageCandidates(product);
@@ -99,9 +76,54 @@ export function resolveProductImage(
 
 /** Returns the next URL to try, or null when every candidate has failed. */
 export function nextProductImage(
-  product: Pick<Product, 'images' | 'title' | 'category'> | null | undefined,
+  product: ProductImageSource | null | undefined,
   index: number,
 ): string | null {
   const candidates = productImageCandidates(product);
   return index + 1 < candidates.length ? candidates[index + 1] : null;
+}
+
+/**
+ * Reusable broken-image cascade. Returns the URL to render plus an `onError`
+ * handler to attach to the <img>, so every card behaves identically instead of
+ * each view re-implementing the walk.
+ */
+export function useProductImage(product: ProductImageSource | null | undefined) {
+  const [index, setIndex] = useState(0);
+
+  // Keyed on the resolved URL list rather than the raw array, so a parent that
+  // rebuilds `images` on every render cannot reset the cascade mid-walk.
+  const candidates = productImageCandidates(product);
+  const key = candidates.join('|');
+
+  useEffect(() => {
+    setIndex(0);
+  }, [key]);
+
+  const src = candidates[Math.min(index, candidates.length - 1)];
+
+  const onError = useCallback(() => {
+    setIndex(current => (current + 1 < candidates.length ? current + 1 : current));
+  }, [candidates.length]);
+
+  return { src, onError, candidates };
+}
+
+/**
+ * Last-resort tile. Deliberately plain - a soft neutral field with a short
+ * caption - so an image-less product reads as "no photo yet" instead of
+ * masquerading as marketplace artwork.
+ */
+export function neutralPlaceholder(label?: string): string {
+  const text = (label || 'No image').slice(0, 22).replace(/[<>&"']/g, '');
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 600">
+    <rect width="600" height="600" fill="#F5F5F4"/>
+    <g fill="none" stroke="#D6D3D1" stroke-width="10" stroke-linejoin="round">
+      <rect x="168" y="204" width="264" height="192" rx="18"/>
+      <path d="M168 336l70-62 52 44 40-32 102 88"/>
+    </g>
+    <circle cx="330" cy="272" r="22" fill="#E7E5E4"/>
+    <text x="300" y="452" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="30" font-weight="600" fill="#A8A29E">${text}</text>
+  </svg>`;
+  return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
 }

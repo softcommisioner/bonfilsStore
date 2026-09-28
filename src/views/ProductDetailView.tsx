@@ -104,12 +104,14 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ productId,
         
         {/* Gallery Column (Left) */}
         <div className="lg:col-span-6 space-y-4">
-          <div className="aspect-4/3 w-full bg-[#F9F9F8] rounded-2xl border border-[#E5E5E5] overflow-hidden relative">
+          <div className="aspect-square w-full bg-[#FAFAF9] rounded-2xl border border-[#E5E5E5] overflow-hidden relative">
             <img
               src={activeImage}
               alt={product.title}
+              loading="eager"
+              decoding="async"
               referrerPolicy="no-referrer"
-              className={`w-full h-full object-cover ${inStock ? '' : 'opacity-60 grayscale'}`}
+              className={`w-full h-full object-contain p-4 ${inStock ? '' : 'opacity-45 grayscale'}`}
               onError={() => {
                 const next = nextProductImage(product, imageIndex);
                 if (next) setImageIndex(imageIndex + 1);

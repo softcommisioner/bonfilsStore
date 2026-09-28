@@ -1,19 +1,53 @@
-import React, { useState } from 'react';
-import { Star, ShoppingCart, Store, ShieldCheck } from 'lucide-react';
+import React from 'react';
+import { Star, ShoppingCart, ShieldCheck, Store, Truck, ImageOff } from 'lucide-react';
 import type { Product } from '../types';
 import { useCart } from '../context/CartContext';
-import { nextProductImage, productImageCandidates } from '../services/images';
+import { useProductImage } from '../services/images';
 
 interface ProductCardProps {
   product: Product;
   onNavigate: (route: string) => void;
 }
 
+/** 1234 -> "1.2k", 14500 -> "14.5k" so sold counts never blow out the row. */
+function compact(value: number): string {
+  if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1).replace(/\.0$/, '')}M`;
+  if (value >= 1_000) return `${(value / 1_000).toFixed(1).replace(/\.0$/, '')}k`;
+  return String(value);
+}
+
+const RatingStars: React.FC<{ rating: number; className?: string }> = ({ rating, className = '' }) => {
+  const percent = Math.max(0, Math.min(100, (rating / 5) * 100));
+  const stars = Array.from({ length: 5 });
+  return (
+    <span className={`relative inline-flex ${className}`} aria-hidden="true">
+      <span className="flex gap-px text-[#D8D8D8]">
+        {stars.map((_, index) => (
+          <Star key={index} className="w-3 h-3 fill-current" />
+        ))}
+      </span>
+      <span
+        className="absolute inset-0 flex gap-px text-[#F5A623] overflow-hidden"
+        style={{ width: `${percent}%` }}
+      >
+        {stars.map((_, index) => (
+          <Star key={index} className="w-3 h-3 fill-current shrink-0" />
+        ))}
+      </span>
+    </span>
+  );
+};
+
 export const ProductCard: React.FC<ProductCardProps> = ({ product, onNavigate }) => {
   const { addItem } = useCart();
+  const { src, onError } = useProductImage(product);
+
   const inStock = product.stock > 0;
   const lowStock = inStock && product.stock <= 5;
-  const candidates = productImageCandidates(product);
+  const discount =
+    product.originalPrice && product.originalPrice > product.price
+      ? Math.round((1 - product.price / product.originalPrice) * 100)
+      : 0;
 
   const handleAddToCart = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -25,111 +59,134 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onNavigate })
     if (inStock) addItem(product, 1);
   };
 
-  const [imageIndex, setImageIndex] = useState(0);
-  const displayImage = candidates[Math.min(imageIndex, candidates.length - 1)];
-
   return (
-    <div
+    <article
       onClick={() => onNavigate(`/products/${product.id}`)}
-      className="group bg-white rounded-lg border border-[#E5E5E5] hover:border-[#FF6A00]/60 hover:shadow-md transition-all duration-200 overflow-hidden flex flex-col cursor-pointer"
+      className="group flex h-full flex-col overflow-hidden rounded-xl border border-[#E8E8E6] bg-white transition-all duration-200 hover:border-[#FF6A00]/50 hover:shadow-[0_8px_24px_-8px_rgba(0,0,0,0.15)] cursor-pointer"
     >
-      {/* Product Image Box */}
-      <div className="relative aspect-4/3 w-full bg-[#F9F9F8] overflow-hidden">
+      {/* Photography: square, neutral field, product letterboxed like a real listing */}
+      <div className="relative aspect-square w-full overflow-hidden bg-[#FAFAF9]">
         <img
-          src={displayImage}
+          src={src}
           alt={product.title}
           loading="lazy"
+          decoding="async"
           referrerPolicy="no-referrer"
-          className={`w-full h-full object-cover group-hover:scale-103 transition-transform duration-300 ${inStock ? '' : 'opacity-60 grayscale'}`}
-          onError={() => {
-            const next = nextProductImage(product, imageIndex);
-            if (next) setImageIndex(imageIndex + 1);
-          }}
+          onError={onError}
+          className={`h-full w-full object-contain p-3 transition-transform duration-300 group-hover:scale-[1.06] ${
+            inStock ? '' : 'opacity-45 grayscale'
+          }`}
         />
 
-        {product.isOfficial && (
-          <div className="absolute top-2 left-2 bg-[#222222]/90 backdrop-blur-xs text-white text-[10px] font-bold px-2 py-0.5 rounded flex items-center gap-1 shadow-xs">
-            <ShieldCheck className="w-3 h-3 text-[#FF6A00]" />
-            <span>Official Store</span>
-          </div>
+        <div className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between gap-1 p-2">
+          {product.isOfficial ? (
+            <span className="inline-flex items-center gap-1 rounded bg-[#222222]/92 px-1.5 py-1 text-[10px] font-bold leading-none text-white shadow-sm backdrop-blur-sm">
+              <ShieldCheck className="h-3 w-3 text-[#FF6A00]" />
+              Official Store
+            </span>
+          ) : (
+            <span />
+          )}
+
+          {discount > 0 && inStock && (
+            <span className="rounded bg-[#FF6A00] px-1.5 py-1 text-[10px] font-extrabold leading-none text-white tabular-nums">
+              -{discount}%
+            </span>
+          )}
+        </div>
+
+        {lowStock && (
+          <span className="absolute bottom-2 left-2 rounded bg-white/95 px-1.5 py-1 text-[10px] font-bold leading-none text-[#FF6A00] shadow-sm tabular-nums">
+            Only {product.stock} left
+          </span>
         )}
 
         {!inStock && (
-          <div className="absolute inset-0 flex items-center justify-center">
-            <span className="bg-[#222222]/85 text-white text-[11px] font-bold px-3 py-1.5 rounded tracking-wide">
+          <div className="absolute inset-0 flex items-center justify-center bg-white/55">
+            <span className="inline-flex items-center gap-1.5 rounded-md bg-[#222222]/88 px-3 py-1.5 text-[11px] font-bold text-white">
+              <ImageOff className="h-3.5 w-3.5" />
               Out of stock
             </span>
           </div>
         )}
-
-        {lowStock && (
-          <div className="absolute top-2 right-2 bg-[#FFF3E8] text-[#FF6A00] text-[10px] font-bold px-2 py-0.5 rounded shadow-xs">
-            Only {product.stock} left
-          </div>
-        )}
       </div>
 
-      {/* Card Content */}
-      <div className="p-3.5 flex-1 flex flex-col justify-between">
-        <div>
-          {/* Seller & Category - unboxed metadata */}
-          <div className="flex items-center gap-1.5 text-[11px] text-[#666666] mb-1">
-            <Store className="w-3 h-3 text-[#888888] shrink-0" />
-            <span className="font-semibold text-[#444444] truncate">{product.sellerName}</span>
-            <span aria-hidden="true">·</span>
-            <span className="truncate">{product.category}</span>
-          </div>
-
-          {/* Product Title */}
-          <h3 className="text-xs sm:text-sm font-semibold text-[#222222] line-clamp-2 leading-snug group-hover:text-[#FF6A00] transition-colors">
-            {product.title}
-          </h3>
-
-          {/* Rating & Orders */}
-          <div className="flex items-center gap-2 text-[11px] text-[#777777] mt-1.5">
-            <div className="flex items-center text-[#F5A623]">
-              <Star className="w-3 h-3 fill-current" />
-              <span className="ml-0.5 font-bold text-[#222222] tabular-nums">{product.rating.toFixed(1)}</span>
-            </div>
-            <span aria-hidden="true">·</span>
-            <span className="tabular-nums">{product.salesCount} sold</span>
-            <span aria-hidden="true">·</span>
-            <span className="text-[#22A06B] font-medium">{product.shippingTimeDays}</span>
-          </div>
+      {/* Body */}
+      <div className="flex flex-1 flex-col gap-2 p-3">
+        <div className="flex min-w-0 items-center gap-1 text-[11px] text-[#8A8A8A]">
+          <Store className="h-3 w-3 shrink-0 text-[#A3A3A3]" />
+          <span className="truncate font-semibold text-[#525252]">{product.sellerName}</span>
+          {product.brand && (
+            <>
+              <span aria-hidden="true" className="text-[#D4D4D4]">|</span>
+              <span className="truncate">{product.brand}</span>
+            </>
+          )}
         </div>
 
-        {/* Pricing & Actions */}
-        <div className="mt-3 pt-2.5 border-t border-[#F0F0F0]">
-          <div className="flex items-baseline gap-1.5">
-            <span className="text-base sm:text-lg font-extrabold text-[#FF6A00] tabular-nums">
+        <h3 className="line-clamp-2 min-h-[2.5rem] text-[13px] font-semibold leading-snug text-[#1F1F1F] transition-colors group-hover:text-[#FF6A00]">
+          {product.title}
+        </h3>
+
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-[#7A7A7A]">
+          <span className="inline-flex items-center gap-1">
+            <RatingStars rating={product.rating} />
+            <span className="font-bold text-[#1F1F1F] tabular-nums">{product.rating.toFixed(1)}</span>
+          </span>
+          {product.reviewsCount > 0 && (
+            <span className="tabular-nums">({compact(product.reviewsCount)})</span>
+          )}
+          {product.salesCount > 0 && (
+            <>
+              <span aria-hidden="true" className="text-[#D4D4D4]">·</span>
+              <span className="tabular-nums">{compact(product.salesCount)} sold</span>
+            </>
+          )}
+        </div>
+
+        <div className="mt-auto space-y-2 pt-1">
+          <div className="flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5">
+            <span className="text-xl font-extrabold leading-none text-[#FF6A00] tabular-nums">
               ${product.price.toFixed(2)}
             </span>
-            {product.originalPrice && (
-              <span className="text-xs text-[#999999] line-through tabular-nums">
-                ${product.originalPrice.toFixed(2)}
-              </span>
+            {product.originalPrice && product.originalPrice > product.price && (
+              <>
+                <span className="text-xs text-[#A3A3A3] line-through tabular-nums">
+                  ${product.originalPrice.toFixed(2)}
+                </span>
+                <span className="text-[11px] font-bold text-[#FF6A00] tabular-nums">-{discount}%</span>
+              </>
             )}
           </div>
 
-          <div className="grid grid-cols-2 gap-1.5 mt-2.5">
+          {product.shippingTimeDays && (
+            <div className="flex items-center gap-1 text-[11px] text-[#7A7A7A]">
+              <Truck className="h-3 w-3 shrink-0 text-[#22A06B]" />
+              <span className="truncate">{product.shippingTimeDays}</span>
+            </div>
+          )}
+
+          <div className="grid grid-cols-2 gap-1.5 pt-0.5">
             <button
               onClick={handleAddToCart}
               disabled={!inStock}
-              className="py-1.5 px-2 bg-[#FFF3E8] hover:bg-[#FFE6CF] text-[#FF6A00] text-[11px] font-bold rounded transition-colors cursor-pointer flex items-center justify-center gap-1 disabled:bg-[#F3F3F3] disabled:text-[#AAAAAA] disabled:cursor-not-allowed disabled:hover:bg-[#F3F3F3]"
+              aria-label={`Add ${product.title} to cart`}
+              className="inline-flex items-center justify-center gap-1 rounded border border-[#FF6A00] bg-white py-2 text-[11px] font-bold text-[#FF6A00] transition-colors hover:bg-[#FFF4EC] disabled:cursor-not-allowed disabled:border-[#E0E0E0] disabled:text-[#B5B5B5] disabled:hover:bg-white"
             >
-              <ShoppingCart className="w-3 h-3" />
-              <span>{inStock ? 'Add to Cart' : 'Sold out'}</span>
+              <ShoppingCart className="h-3.5 w-3.5" />
+              <span className="truncate">{inStock ? 'Add to Cart' : 'Sold out'}</span>
             </button>
             <button
               onClick={handleBuyNow}
               disabled={!inStock}
-              className="py-1.5 px-2 bg-[#FF6A00] hover:bg-[#FF8A00] text-white text-[11px] font-bold rounded transition-colors cursor-pointer disabled:bg-[#CCCCCC] disabled:cursor-not-allowed disabled:hover:bg-[#CCCCCC]"
+              aria-label={`Buy ${product.title} now`}
+              className="rounded bg-[#FF6A00] py-2 text-[11px] font-bold text-white transition-colors hover:bg-[#FF8A00] disabled:cursor-not-allowed disabled:bg-[#D4D4D4] disabled:hover:bg-[#D4D4D4]"
             >
               Buy Now
             </button>
           </div>
         </div>
       </div>
-    </div>
+    </article>
   );
 };

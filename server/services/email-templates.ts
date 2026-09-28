@@ -1,8 +1,17 @@
 import type { ChinaRequest, Order, Quotation } from '../../src/types.js';
+import { config } from '../config.js';
 
 const BRAND = '#FF6A00';
 const INK = '#1F2933';
 const MUTED = '#6B7280';
+
+/**
+ * Display name for the sender, driven by EMAIL_FROM_NAME so the brand stays in
+ * one place. Falls back to the storefront name if config is unavailable.
+ */
+function brandName(): string {
+  return config.emailFromName || 'BonfilsStore';
+}
 
 export function escapeHtml(value: unknown): string {
   return String(value ?? '').replace(/[&<>"']/g, char => (
@@ -15,6 +24,7 @@ function money(value: number): string {
 }
 
 function shell(title: string, subtitle: string, body: string): string {
+  const brand = escapeHtml(brandName());
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -22,19 +32,20 @@ function shell(title: string, subtitle: string, body: string): string {
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>${escapeHtml(title)}</title>
 </head>
-<body style="margin:0;padding:24px;background:#F5F5F4;font-family:'Segoe UI',Arial,Helvetica,sans-serif;color:${INK};">
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;margin:0 auto;background:#FFFFFF;border-radius:12px;overflow:hidden;border:1px solid #E5E7EB;">
+<body style="margin:0;padding:24px 12px;background:#F5F5F4;font-family:'Segoe UI',Arial,Helvetica,sans-serif;color:${INK};">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;margin:0 auto;background:#FFFFFF;border-radius:14px;overflow:hidden;border:1px solid #E5E7EB;">
     <tr>
-      <td style="background:${BRAND};padding:22px 28px;color:#FFFFFF;">
-        <div style="font-size:20px;font-weight:800;letter-spacing:0.5px;">BONFILS STORE</div>
-        <div style="font-size:13px;opacity:0.92;margin-top:2px;">${escapeHtml(subtitle)}</div>
+      <td style="background:${BRAND};padding:22px 28px;">
+        <div style="font-size:20px;font-weight:800;letter-spacing:0.3px;color:#FFFFFF;">${brand}</div>
+        <div style="font-size:13px;color:#FFE8D4;margin-top:2px;">${escapeHtml(subtitle)}</div>
       </td>
     </tr>
     <tr><td style="padding:28px;">${body}</td></tr>
     <tr>
-      <td style="background:#FAFAF9;padding:18px 28px;border-top:1px solid #E5E7EB;font-size:12px;color:${MUTED};text-align:center;">
-        &copy; ${new Date().getFullYear()} BONFILS STORE · Kigali, Rwanda<br />
-        Multi-vendor marketplace · China sourcing &amp; international freight
+      <td style="background:#FAFAF9;padding:20px 28px;border-top:1px solid #E5E7EB;font-size:12px;color:${MUTED};text-align:center;line-height:1.7;">
+        &copy; ${new Date().getFullYear()} ${brand} &middot; Kigali, Rwanda<br />
+        Multi-vendor marketplace &middot; China sourcing &amp; international freight<br />
+        <span style="color:#9CA3AF;">This is an automated message. Please do not reply.</span>
       </td>
     </tr>
   </table>
@@ -50,20 +61,47 @@ export function otpEmailTemplate(params: {
   isAdmin?: boolean;
 }): string {
   const minutes = params.minutes ?? 5;
+  const brand = escapeHtml(brandName());
+  // One template serves customers, sellers, staff and super admins; only the
+  // eyebrow and the warning tone change, so the flow can never drift per role.
+  const eyebrow = params.isAdmin ? 'Super Admin console' : 'Secure sign-in';
   const heading = params.isAdmin ? 'Super Admin verification' : 'Account verification';
+
   return shell(
     `${heading} code`,
-    heading,
-    `<h1 style="margin:0 0 12px;font-size:20px;">${escapeHtml(params.purposeText)}</h1>
-     <p style="margin:0 0 18px;line-height:1.6;color:#374151;">Hello <strong>${escapeHtml(params.recipientName)}</strong>,</p>
-     <p style="margin:0 0 22px;line-height:1.6;color:#374151;">Use the single-use verification code below to continue on BONFILS STORE.</p>
-     <div style="background:#FFF7ED;border:1px dashed ${BRAND};border-radius:10px;padding:22px;text-align:center;margin:0 0 22px;">
-       <div style="font-size:11px;font-weight:700;letter-spacing:1.6px;text-transform:uppercase;color:${BRAND};margin-bottom:10px;">Your verification code</div>
-       <div style="font-size:36px;font-weight:800;letter-spacing:10px;font-family:Consolas,Menlo,monospace;color:${INK};">${escapeHtml(params.code)}</div>
-       <div style="font-size:13px;color:${MUTED};margin-top:10px;">Valid for ${minutes} minutes · single use only</div>
-     </div>
-     <p style="margin:0;font-size:13px;line-height:1.6;color:${MUTED};">
-       If you did not request this code, ignore this email and do not share it with anyone. BONFILS STORE will never ask you for this code.
+    eyebrow,
+    `<h1 style="margin:0 0 14px;font-size:20px;line-height:1.35;color:${INK};">${escapeHtml(params.purposeText)}</h1>
+     <p style="margin:0 0 20px;line-height:1.65;color:#374151;font-size:14px;">
+       Hello <strong style="color:${INK};">${escapeHtml(params.recipientName)}</strong>,
+     </p>
+     <p style="margin:0 0 24px;line-height:1.65;color:#374151;font-size:14px;">
+       Use the single-use verification code below to continue on ${brand}.
+     </p>
+     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:separate;margin:0 0 22px;">
+       <tr>
+         <td align="center" style="background:#FFF7ED;border:1px dashed ${BRAND};border-radius:12px;padding:26px 20px;">
+           <div style="font-size:11px;font-weight:700;letter-spacing:1.8px;text-transform:uppercase;color:${BRAND};margin-bottom:14px;">
+             Your verification code
+           </div>
+           <div style="font-size:40px;font-weight:800;letter-spacing:12px;line-height:1.2;font-family:Consolas,Menlo,monospace;color:${INK};">
+             ${escapeHtml(params.code)}
+           </div>
+           <div style="font-size:13px;color:${MUTED};margin-top:14px;">
+             Expires in ${minutes} minutes &middot; single use only
+           </div>
+         </td>
+       </tr>
+     </table>
+     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;background:#FAFAF9;border:1px solid #E5E7EB;border-radius:10px;margin:0 0 22px;">
+       <tr>
+         <td style="padding:14px 16px;font-size:13px;line-height:1.6;color:#374151;">
+           <strong style="color:${INK};">Did not request this?</strong>
+           Ignore this email. ${brand} will never ask you to read out a code, and no support agent will request it.
+         </td>
+       </tr>
+     </table>
+     <p style="margin:0;font-size:13px;line-height:1.65;color:${MUTED};">
+       Having trouble? Reply through the ${brand} dashboard and our team will help you sign in.
      </p>`,
   );
 }

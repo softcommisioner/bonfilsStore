@@ -1,5 +1,6 @@
 import type { Business, Category, Product, UserRole } from '../../src/types.js';
 import type { UserRecord } from '../db/index.js';
+import { CATEGORY_IMAGES, PRODUCT_IMAGES } from './images.js';
 
 const NOW = Date.parse('2026-01-05T09:00:00.000Z');
 const day = 24 * 60 * 60 * 1000;
@@ -8,24 +9,33 @@ function iso(offsetDays: number): string {
   return new Date(NOW + offsetDays * day).toISOString();
 }
 
-export const seedCategories: Category[] = [
-  { id: 'CAT-01', name: 'Laptops & Computers', slug: 'laptops-computers', image: '/images/categories/laptops-computers.svg', description: 'Business laptops, workstations, desktops and computer accessories.', sortOrder: 1, isActive: true, createdAt: iso(0) },
-  { id: 'CAT-02', name: 'CCTV & Security', slug: 'cctv-security', image: '/images/categories/cctv-security.svg', description: 'CCTV cameras, DVR/NVR kits, alarms and access control.', sortOrder: 2, isActive: true, createdAt: iso(0) },
-  { id: 'CAT-03', name: 'Motorcycles & Accessories', slug: 'motorcycles-accessories', image: '/images/categories/motorcycles-accessories.svg', description: 'Motorcycles, electric scooters, spare parts and riding gear.', sortOrder: 3, isActive: true, createdAt: iso(0) },
-  { id: 'CAT-04', name: 'Beauty & Cosmetics', slug: 'beauty-cosmetics', image: '/images/categories/beauty-cosmetics.svg', description: 'Skincare, hair care, grooming tools and salon equipment.', sortOrder: 4, isActive: true, createdAt: iso(0) },
-  { id: 'CAT-05', name: 'Electronics', slug: 'electronics', image: '/images/categories/electronics.svg', description: 'Audio, drones, cameras, wearables and everyday gadgets.', sortOrder: 5, isActive: true, createdAt: iso(0) },
-  { id: 'CAT-06', name: 'Phones & Tablets', slug: 'phones-tablets', image: '/images/categories/phones-tablets.svg', description: 'Smartphones, tablets, chargers, cases and screen protection.', sortOrder: 6, isActive: true, createdAt: iso(0) },
-  { id: 'CAT-07', name: 'Smart Home & IoT', slug: 'smart-home-iot', image: '/images/categories/smart-home-iot.svg', description: 'Smart bulbs, locks, plugs, sensors and home automation hubs.', sortOrder: 7, isActive: true, createdAt: iso(0) },
-  { id: 'CAT-08', name: 'Networking', slug: 'networking', image: '/images/categories/networking.svg', description: 'Routers, switches, extenders, cables and structured cabling.', sortOrder: 8, isActive: true, createdAt: iso(0) },
-  { id: 'CAT-09', name: 'Solar & Electrical', slug: 'solar-electrical', image: '/images/categories/solar-electrical.svg', description: 'Solar panels, inverters, batteries, generators and power banks.', sortOrder: 9, isActive: true, createdAt: iso(0) },
-  { id: 'CAT-10', name: 'Home & Kitchen', slug: 'home-kitchen', image: '/images/categories/home-kitchen.svg', description: 'Home appliances, kitchen equipment and household furniture.', sortOrder: 10, isActive: true, createdAt: iso(0) },
-  { id: 'CAT-11', name: 'Fashion', slug: 'fashion', image: '/images/categories/fashion.svg', description: 'Men and women clothing, shoes, bags, watches and sunglasses.', sortOrder: 11, isActive: true, createdAt: iso(0) },
-  { id: 'CAT-12', name: 'Tools & Hardware', slug: 'tools-hardware', image: '/images/categories/tools-hardware.svg', description: 'Power tools, hand tools, hardware, paints and building supplies.', sortOrder: 12, isActive: true, createdAt: iso(0) },
+const CATEGORY_ROWS: Array<Pick<Category, 'id' | 'name' | 'slug' | 'description' | 'sortOrder'>> = [
+  { id: 'CAT-01', name: 'Laptops & Computers', slug: 'laptops-computers', description: 'Business laptops, workstations, desktops and computer accessories.', sortOrder: 1 },
+  { id: 'CAT-02', name: 'CCTV & Security', slug: 'cctv-security', description: 'CCTV cameras, DVR/NVR kits, alarms and access control.', sortOrder: 2 },
+  { id: 'CAT-03', name: 'Motorcycles & Accessories', slug: 'motorcycles-accessories', description: 'Motorcycles, electric scooters, spare parts and riding gear.', sortOrder: 3 },
+  { id: 'CAT-04', name: 'Beauty & Cosmetics', slug: 'beauty-cosmetics', description: 'Skincare, hair care, grooming tools and salon equipment.', sortOrder: 4 },
+  { id: 'CAT-05', name: 'Electronics', slug: 'electronics', description: 'Audio, drones, cameras, wearables and everyday gadgets.', sortOrder: 5 },
+  { id: 'CAT-06', name: 'Phones & Tablets', slug: 'phones-tablets', description: 'Smartphones, tablets, chargers, cases and screen protection.', sortOrder: 6 },
+  { id: 'CAT-07', name: 'Smart Home & IoT', slug: 'smart-home-iot', description: 'Smart bulbs, locks, plugs, sensors and home automation hubs.', sortOrder: 7 },
+  { id: 'CAT-08', name: 'Networking', slug: 'networking', description: 'Routers, switches, extenders, cables and structured cabling.', sortOrder: 8 },
+  { id: 'CAT-09', name: 'Solar & Electrical', slug: 'solar-electrical', description: 'Solar panels, inverters, batteries, generators and power banks.', sortOrder: 9 },
+  { id: 'CAT-10', name: 'Home & Kitchen', slug: 'home-kitchen', description: 'Home appliances, kitchen equipment and household furniture.', sortOrder: 10 },
+  { id: 'CAT-11', name: 'Fashion', slug: 'fashion', description: 'Men and women clothing, shoes, bags, watches and sunglasses.', sortOrder: 11 },
+  { id: 'CAT-12', name: 'Tools & Hardware', slug: 'tools-hardware', description: 'Power tools, hand tools, hardware, paints and building supplies.', sortOrder: 12 },
 ];
 
-const CATEGORY_IMAGE: Record<string, string> = Object.fromEntries(
-  seedCategories.map(category => [category.name, category.image as string]),
-);
+// Category tiles render a real photograph (see ./images.ts). The bundled SVG is
+// retained only as a last-resort fallback for a category missing from the table.
+export const seedCategories: Category[] = CATEGORY_ROWS.map(row => ({
+  ...row,
+  image: CATEGORY_IMAGES[row.name] || `/images/categories/${row.slug}.svg`,
+  isActive: true,
+  createdAt: iso(0),
+}));
+
+function singleImage(url: string | undefined): string[] {
+  return url ? [url] : [];
+}
 
 /**
  * Category restructure (18 -> 12). The storefront now exposes exactly the
@@ -430,7 +440,10 @@ function buildProduct(seed: ProductSeed): Product {
     price: seed.price,
     originalPrice: seed.originalPrice,
     stock: seed.stock,
-    images: seed.images && seed.images.length ? seed.images : [CATEGORY_IMAGE[seed.category]],
+    // Real photography. A product with no usable image keeps an empty list so
+    // the storefront renders a neutral tile; it must NOT inherit the category
+    // vector artwork, which used to make every card look like a placeholder.
+    images: seed.images && seed.images.length ? seed.images : singleImage(PRODUCT_IMAGES[seed.id]),
     rating: seed.rating ?? 4.6,
     reviewsCount: seed.reviewsCount ?? 0,
     salesCount: seed.salesCount ?? 0,

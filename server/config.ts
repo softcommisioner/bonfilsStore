@@ -32,6 +32,16 @@ const databaseUrl = firstDefined(
   process.env.POSTGRES_PRISMA_URL,
 );
 
+const emailHost = firstDefined(process.env.EMAIL_HOST);
+const emailUser = firstDefined(process.env.EMAIL_USER);
+const emailPass = firstDefined(process.env.EMAIL_PASS);
+const emailPort = Number.parseInt(process.env.EMAIL_PORT || '465', 10) || 465;
+// Port 465 is implicit TLS; 587 is STARTTLS. Both are encrypted, the handshake
+// just happens at a different point. Only an explicit EMAIL_SECURE=false
+// disables TLS, which is reserved for a local debugging relay.
+const emailSecure = toBool(process.env.EMAIL_SECURE, emailPort === 465);
+const emailFromName = firstDefined(process.env.EMAIL_FROM_NAME) || 'BonfilsStore';
+
 export const config = {
   env: process.env.NODE_ENV || 'development',
   isProduction: (process.env.NODE_ENV || 'development') === 'production',
@@ -41,6 +51,20 @@ export const config = {
   isServerless: Boolean(process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME),
   resendApiKey: firstDefined(process.env.RESEND_API_KEY),
   emailFrom: firstDefined(process.env.EMAIL_FROM) || 'BONFILS STORE <notifications@bonfilsstore.com>',
+  // Whether EMAIL_FROM was set explicitly, or is only the marketing default.
+  // The SMTP path needs this: Gmail rejects a From header that is not the
+  // authenticated mailbox, so the default must not leak into SMTP sends.
+  emailFromExplicit: Boolean(firstDefined(process.env.EMAIL_FROM)),
+  emailHost,
+  emailPort,
+  emailUser,
+  emailPass,
+  emailSecure,
+  emailFromName,
+  // Both a user and a password are required: Gmail rejects an unauthenticated
+  // relay, and a half-configured block must fail closed rather than silently
+  // fall back to an unauthenticated socket.
+  isSmtpConfigured: Boolean(emailHost && emailUser && emailPass),
   blobToken: firstDefined(process.env.BLOB_READ_WRITE_TOKEN),
   superAdminEmail: firstDefined(process.env.SUPER_ADMIN_EMAIL),
   superAdminPassword: firstDefined(process.env.SUPER_ADMIN_PASSWORD),

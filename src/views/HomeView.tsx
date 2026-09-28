@@ -4,6 +4,7 @@ import {
 } from 'lucide-react';
 import { HeroBanner } from '../components/HeroBanner';
 import { ProductCard } from '../components/ProductCard';
+import { SafeImage } from '../components/SafeImage';
 import { api } from '../services/api';
 import type { Product, Business } from '../types';
 
@@ -116,7 +117,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ onNavigate, onSelectCategory
           <div className="flex items-end justify-between gap-3 mb-4">
             <div>
               <h2 className="text-lg sm:text-xl font-bold text-[#222222] tracking-tight">Shop by Category</h2>
-              <p className="text-xs text-[#666666] mt-0.5">18 departments stocked from Kigali and China hubs.</p>
+              <p className="text-xs text-[#666666] mt-0.5">12 departments stocked from Kigali and China hubs.</p>
             </div>
             <button
               onClick={() => onNavigate('/categories')}
@@ -134,16 +135,13 @@ export const HomeView: React.FC<HomeViewProps> = ({ onNavigate, onSelectCategory
                 onClick={() => onSelectCategory(category.name)}
                 className="shrink-0 w-32 sm:w-40 snap-start bg-white border border-[#E5E5E5] rounded-lg overflow-hidden hover:border-[#FF6A00]/60 hover:shadow-sm transition-all cursor-pointer text-left"
               >
-                <div className="aspect-square w-full bg-[#F9F9F8]">
-                  {category.image && (
-                    <img
-                      src={category.image}
-                      alt={category.name}
-                      loading="lazy"
-                      className="w-full h-full object-cover"
-                    />
-                  )}
-                </div>
+                <SafeImage
+                  src={category.image}
+                  alt={category.name}
+                  label={category.name}
+                  className="aspect-square w-full bg-[#FAFAF9]"
+                  imgClassName="object-cover transition-transform duration-300 hover:scale-105"
+                />
                 <div className="p-2">
                   <div className="text-[11px] font-bold text-[#222222] leading-tight line-clamp-2">{category.name}</div>
                   <div className="text-[10px] text-[#888888] mt-0.5 tabular-nums">{category.count} items</div>
