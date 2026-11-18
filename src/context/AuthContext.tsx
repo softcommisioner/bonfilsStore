@@ -9,11 +9,8 @@ interface AuthContextType {
   isLoading: boolean;
   userMode: 'shopping' | 'seller';
   setUserMode: (mode: 'shopping' | 'seller') => void;
-  login: (email: string, password: string) => Promise<{ requireOtp: boolean; email: string; maskedEmail: string }>;
-  verifyLoginOtp: (email: string, code: string) => Promise<void>;
-  register: (payload: any) => Promise<{ email: string; expiresInSeconds: number }>;
-  verifyRegistrationOtp: (email: string, code: string) => Promise<void>;
-  resendOtp: (email: string, purpose: 'registration' | 'login' | 'admin_login' | 'password_reset') => Promise<void>;
+  login: (email: string, password: string) => Promise<User>;
+  register: (payload: any) => Promise<User>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
 }
@@ -61,28 +58,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const login = async (email: string, password: string) => {
     const res = await api.login({ email, password });
-    return { requireOtp: res.requireOtp, email: res.email, maskedEmail: res.maskedEmail };
-  };
-
-  const verifyLoginOtp = async (email: string, code: string) => {
-    const res = await api.verifyLoginOtp(email, code);
     setUser(res.user);
-    await refreshUser();
+    setBusiness(res.business || null);
+    return res.user;
   };
 
   const register = async (payload: any) => {
     const res = await api.register(payload);
-    return { email: res.email, expiresInSeconds: res.expiresInSeconds };
-  };
-
-  const verifyRegistrationOtp = async (email: string, code: string) => {
-    const res = await api.verifyRegistrationOtp(email, code);
     setUser(res.user);
-    await refreshUser();
-  };
-
-  const resendOtp = async (email: string, purpose: 'registration' | 'login' | 'admin_login' | 'password_reset') => {
-    await api.resendOtp(email, purpose);
+    setBusiness(res.business || null);
+    return res.user;
   };
 
   const logout = async () => {
@@ -102,10 +87,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         userMode,
         setUserMode,
         login,
-        verifyLoginOtp,
         register,
-        verifyRegistrationOtp,
-        resendOtp,
         logout,
         refreshUser,
       }}

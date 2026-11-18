@@ -6,7 +6,7 @@ import type { AdminStats, Product } from '../../src/types.js';
 import { logActivity, pushNotification, requireAdmin } from '../middleware.js';
 import { adminRateLimiter, clientKey, createSession, hashPassword, newId, verifyPassword } from '../security.js';
 import {
-  asyncHandler, consumeOtp, EMAIL_REGEX, issueOtp, normalizeEmail, publicUser, resolveCategoryName, toNumber,
+  asyncHandler, EMAIL_REGEX, normalizeEmail, publicUser, resolveCategoryName, toNumber,
 } from './helpers.js';
 import { sendEmail, isEmailDeliveryConfigured } from '../services/email.js';
 import { uploadImage, UploadError } from '../services/upload.js';
@@ -51,64 +51,23 @@ router.post('/login', asyncHandler(async (req, res) => {
     return res.status(401).json({ error: 'Invalid Super Admin credentials.' });
   }
 
-  const { maskedEmail } = await issueOtp({
-    email,
-    purpose: 'admin_login',
-    recipientName: user.name,
-    purposeText: 'Super Admin verification',
-    subject: 'BONFILS STORE - Super Admin Verification Code',
-    payload: { userId: user.id },
-    maxAttempts: config.adminOtpMaxAttempts,
-    isAdmin: true,
-  });
-
-  await logActivity({
-    actor: user,
-    action: 'ADMIN_OTP_SENT',
-    targetType: 'auth',
-    details: `Super Admin verification code sent to ${maskedEmail}.`,
-  });
-
-  res.json({
-    success: true,
-    requireOtp: true,
-    email,
-    maskedEmail,
-    message: `A 6-digit Super Admin code was sent to ${maskedEmail}.`,
-  });
-}));
-
-router.post('/verify-otp', asyncHandler(async (req, res) => {
-  const email = normalizeEmail(req.body?.email);
-  const code = String(req.body?.code || '').trim();
-  if (!email || !code) {
-    return res.status(400).json({ error: 'Email and verification code are required.' });
-  }
-
-  const store = getStore();
-  const result = await consumeOtp({ req, email, code, purpose: 'admin_login' });
-  if (!result.ok) {
-    return res.status(result.status).json({ error: result.error });
-  }
-
-  const user = await store.findUserByEmail(email);
-  if (!user || !user.roles.includes('super_admin') || user.status !== 'active') {
-    return res.status(403).json({ error: 'This account is not authorised for administration.' });
-  }
+  const activeUser = user.isVerified
+    ? user
+    : (await store.updateUser(user.id, { isVerified: true, status: 'active' }))!;
 
   // Admin sessions are single audience and short lived. A normal app session
   // can never be used to reach the admin API.
-  await store.deleteAdminSessionsForUser(user.id);
-  const token = await createSession(user.id, 'admin', config.adminSessionTtlMs);
+  await store.deleteAdminSessionsForUser(activeUser.id);
+  const token = await createSession(activeUser.id, 'admin', config.adminSessionTtlMs);
 
   await logActivity({
-    actor: user,
+    actor: activeUser,
     action: 'ADMIN_LOGIN_SUCCESS',
     targetType: 'auth',
-    details: 'Super Admin signed in with a verified email code.',
+    details: 'Super Admin signed in directly with credentials.',
   });
 
-  res.json({ success: true, message: 'Super Admin verified.', user: publicUser(user), token });
+  res.json({ success: true, message: 'Signed in to the Super Admin console.', user: publicUser(activeUser), token });
 }));
 
 router.post('/logout', asyncHandler(async (req, res) => {

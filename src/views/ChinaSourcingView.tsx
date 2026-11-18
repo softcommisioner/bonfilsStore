@@ -171,7 +171,7 @@ export const ChinaSourcingView: React.FC<ChinaSourcingViewProps> = ({ onNavigate
           </div>
 
           <div className="text-xs text-[#777777] max-w-sm mx-auto">
-            A confirmation email was dispatched to <strong>{submittedRequest.customerEmail}</strong>. You can inspect it in the Email & OTP Dispatcher drawer.
+            A confirmation email was dispatched to <strong>{submittedRequest.customerEmail}</strong>. You can inspect it in the Email Delivery drawer.
           </div>
 
           <div className="pt-2 flex flex-col sm:flex-row justify-center gap-3">
@@ -515,7 +515,7 @@ export const ChinaSourcingView: React.FC<ChinaSourcingViewProps> = ({ onNavigate
 
                 <div>
                   <label className="block text-xs font-semibold text-[#444444] mb-1">
-                    Email Address (For Quotation & OTP updates) <span className="text-red-500">*</span>
+                    Email Address (For Quotation & Order updates) <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="email"

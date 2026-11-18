@@ -1,8 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  Lock, Mail, Phone, MapPin, User, ShieldCheck, 
-  ArrowRight, KeyRound, CheckCircle, RefreshCw, AlertCircle, Store, ShoppingBag, ArrowLeftRight 
-} from 'lucide-react';
+import React, { useState } from 'react';
+import { AlertCircle, ArrowLeftRight, ArrowRight, CheckCircle, ShoppingBag, Store } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../services/api';
 
@@ -15,10 +12,9 @@ export const AuthViews: React.FC<AuthViewsProps> = ({
   initialMode = 'login',
   onNavigate,
 }) => {
-  const { login, verifyLoginOtp, register, verifyRegistrationOtp, resendOtp } = useAuth();
+  const { login, register } = useAuth();
 
-  // Mode: 'login' | 'verify_login_otp' | 'register' | 'verify_register_otp' | 'forgot_password' | 'reset_password'
-  const [viewState, setViewState] = useState<'login' | 'verify_login_otp' | 'register' | 'verify_register_otp' | 'forgot_password' | 'reset_password'>(initialMode);
+  const [viewState, setViewState] = useState<'login' | 'register' | 'forgot_password'>(initialMode);
 
   // Registration state
   const [accountType, setAccountType] = useState<'customer' | 'seller' | 'both'>('customer');
@@ -34,12 +30,6 @@ export const AuthViews: React.FC<AuthViewsProps> = ({
   // Login state
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
-  const [maskedEmail, setMaskedEmail] = useState('');
-
-  // OTP state
-  const [otpCode, setOtpCode] = useState('');
-  const [targetEmail, setTargetEmail] = useState('');
-  const [cooldownSeconds, setCooldownSeconds] = useState(0);
 
   // Password reset state
   const [resetEmail, setResetEmail] = useState('');
@@ -51,16 +41,7 @@ export const AuthViews: React.FC<AuthViewsProps> = ({
   const [errorMessage, setErrorMessage] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
 
-  // Cooldown timer effect
-  useEffect(() => {
-    if (cooldownSeconds <= 0) return;
-    const timer = setInterval(() => {
-      setCooldownSeconds(prev => prev - 1);
-    }, 1000);
-    return () => clearInterval(timer);
-  }, [cooldownSeconds]);
-
-  // Handle Registration Submit (Step 1)
+  // Handle Registration Submit
   const handleRegisterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage('');
@@ -76,7 +57,7 @@ export const AuthViews: React.FC<AuthViewsProps> = ({
 
     setIsLoading(true);
     try {
-      const res = await register({
+      await register({
         name,
         email: regEmail,
         phone: regPhone,
@@ -88,10 +69,10 @@ export const AuthViews: React.FC<AuthViewsProps> = ({
         acceptTerms,
       });
 
-      setTargetEmail(res.email);
-      setCooldownSeconds(45);
-      setViewState('verify_register_otp');
-      setSuccessMessage('Verification code dispatched to your email.');
+      setSuccessMessage('Account created successfully. Welcome to BONFILS STORE.');
+      setTimeout(() => {
+        onNavigate('/');
+      }, 800);
     } catch (err: any) {
       setErrorMessage(err.message || 'Registration failed.');
     } finally {
@@ -99,43 +80,18 @@ export const AuthViews: React.FC<AuthViewsProps> = ({
     }
   };
 
-  // Handle Registration OTP Verify (Step 2)
-  const handleVerifyRegisterOtp = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setErrorMessage('');
-    if (!otpCode || otpCode.length < 6) {
-      setErrorMessage('Please enter the full 6-digit OTP code.');
-      return;
-    }
-
-    setIsLoading(true);
-    try {
-      await verifyRegistrationOtp(targetEmail || regEmail, otpCode);
-      setSuccessMessage('Email Verified Successfully! Welcome to BONFILS STORE.');
-      setTimeout(() => {
-        onNavigate('/');
-      }, 1500);
-    } catch (err: any) {
-      setErrorMessage(err.message || 'Invalid or expired OTP code.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // Handle Login Submit (Step 1)
+  // Handle Login Submit
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage('');
     setIsLoading(true);
 
     try {
-      const res = await login(loginEmail, loginPassword);
-      if (res.requireOtp) {
-        setTargetEmail(res.email);
-        setMaskedEmail(res.maskedEmail);
-        setCooldownSeconds(45);
-        setViewState('verify_login_otp');
-      }
+      await login(loginEmail, loginPassword);
+      setSuccessMessage('Login successful!');
+      setTimeout(() => {
+        onNavigate('/');
+      }, 500);
     } catch (err: any) {
       setErrorMessage(err.message || 'Invalid email or password.');
     } finally {
@@ -143,65 +99,7 @@ export const AuthViews: React.FC<AuthViewsProps> = ({
     }
   };
 
-  // Handle Login OTP Verify (Step 2)
-  const handleVerifyLoginOtp = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setErrorMessage('');
-    if (!otpCode || otpCode.length < 6) {
-      setErrorMessage('Please enter the 6-digit verification code.');
-      return;
-    }
-
-    setIsLoading(true);
-    try {
-      await verifyLoginOtp(targetEmail || loginEmail, otpCode);
-      setSuccessMessage('Login Successful!');
-      setTimeout(() => {
-        onNavigate('/');
-      }, 800);
-    } catch (err: any) {
-      setErrorMessage(err.message || 'Invalid or expired code.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // Resend OTP
-  const handleResend = async (purpose: 'registration' | 'login' | 'password_reset') => {
-    if (cooldownSeconds > 0) return;
-    setErrorMessage('');
-    setIsLoading(true);
-    try {
-      const email = targetEmail || regEmail || loginEmail || resetEmail;
-      await resendOtp(email, purpose);
-      setCooldownSeconds(45);
-      setSuccessMessage('A fresh verification code was sent to your email.');
-    } catch (err: any) {
-      setErrorMessage(err.message || 'Failed to resend code.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // Forgot Password Submit (Step 1)
-  const handleForgotPasswordSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setErrorMessage('');
-    setIsLoading(true);
-    try {
-      await api.forgotPassword(resetEmail);
-      setTargetEmail(resetEmail);
-      setCooldownSeconds(45);
-      setViewState('reset_password');
-      setSuccessMessage('Password reset verification code dispatched to your email.');
-    } catch (err: any) {
-      setErrorMessage(err.message || 'Failed to request reset.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // Reset Password Submit (Step 2)
+  // Direct Password Reset Submit
   const handleResetPasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage('');
@@ -213,15 +111,17 @@ export const AuthViews: React.FC<AuthViewsProps> = ({
     setIsLoading(true);
     try {
       await api.resetPassword({
-        email: targetEmail || resetEmail,
-        code: otpCode,
+        email: resetEmail,
         newPassword,
         confirmPassword: confirmNewPassword,
       });
+      setLoginEmail(resetEmail);
       setSuccessMessage('Password updated successfully! Please log in.');
+      setNewPassword('');
+      setConfirmNewPassword('');
       setTimeout(() => {
         setViewState('login');
-      }, 1500);
+      }, 1200);
     } catch (err: any) {
       setErrorMessage(err.message || 'Failed to reset password.');
     } finally {
@@ -424,7 +324,7 @@ export const AuthViews: React.FC<AuthViewsProps> = ({
                   className="mt-0.5 text-[#FF6A00] focus:ring-[#FF6A00] rounded"
                 />
                 <span className="text-[11px] leading-tight">
-                  I accept the Terms and Conditions and understand my email will be verified with a 6-digit OTP code.
+                  I accept the Terms and Conditions.
                 </span>
               </label>
             </div>
@@ -434,7 +334,7 @@ export const AuthViews: React.FC<AuthViewsProps> = ({
               disabled={isLoading}
               className="w-full py-3 bg-[#FF6A00] hover:bg-[#FF8A00] text-white text-xs font-bold rounded-lg transition-colors cursor-pointer flex items-center justify-center gap-1.5 shadow-xs"
             >
-              <span>{isLoading ? 'Creating Account...' : 'Continue to Email OTP Verification'}</span>
+              <span>{isLoading ? 'Creating Account...' : 'Create Account & Sign In'}</span>
               <ArrowRight className="w-3.5 h-3.5" />
             </button>
 
@@ -452,81 +352,13 @@ export const AuthViews: React.FC<AuthViewsProps> = ({
         )}
 
         {/* =========================================
-            VIEW 2: REGISTRATION OTP (Requirement 5)
-        ========================================= */}
-        {viewState === 'verify_register_otp' && (
-          <form onSubmit={handleVerifyRegisterOtp} className="space-y-5">
-            <div className="text-center space-y-1">
-              <div className="w-12 h-12 bg-[#FFF3E8] text-[#FF6A00] rounded-full flex items-center justify-center mx-auto mb-2">
-                <Mail className="w-6 h-6" />
-              </div>
-              <h2 className="text-lg font-bold text-[#222222]">Verify Your Email</h2>
-              <p className="text-xs text-[#666666]">
-                We sent a 6-digit verification code to: <br />
-                <strong className="text-[#222222]">{targetEmail || regEmail}</strong>
-              </p>
-            </div>
-
-            <div className="space-y-2">
-              <label className="block text-xs font-semibold text-center text-[#444444]">
-                Enter OTP Code:
-              </label>
-              <input
-                type="text"
-                required
-                maxLength={6}
-                value={otpCode}
-                onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
-                placeholder="583214"
-                className="w-full py-3 text-center text-2xl font-mono font-bold tracking-widest border-2 border-[#FF6A00] rounded-xl focus:outline-none bg-[#FFF8F2]"
-              />
-              <div className="text-[11px] text-center text-[#888888]">
-                This code expires in 5 minutes · Single-use
-              </div>
-            </div>
-
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="w-full py-3 bg-[#FF6A00] hover:bg-[#FF8A00] text-white text-xs font-bold rounded-lg transition-colors cursor-pointer shadow-xs"
-            >
-              {isLoading ? 'Verifying...' : 'VERIFY & COMPLETE REGISTRATION'}
-            </button>
-
-            <div className="text-center pt-2 space-y-2">
-              <div className="text-xs text-[#666666]">
-                Didn't receive the code?{' '}
-                <button
-                  type="button"
-                  disabled={cooldownSeconds > 0 || isLoading}
-                  onClick={() => handleResend('registration')}
-                  className={`font-semibold cursor-pointer ${
-                    cooldownSeconds > 0 ? 'text-[#999999]' : 'text-[#FF6A00] hover:underline'
-                  }`}
-                >
-                  {cooldownSeconds > 0 ? `Resend in ${cooldownSeconds}s` : 'Resend Code'}
-                </button>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => setViewState('register')}
-                className="text-xs text-[#888888] hover:text-[#222222] cursor-pointer"
-              >
-                ← Back to registration form
-              </button>
-            </div>
-          </form>
-        )}
-
-        {/* =========================================
-            VIEW 3: LOGIN (Requirement 6 & 7)
+            VIEW 2: LOGIN
         ========================================= */}
         {viewState === 'login' && (
           <form onSubmit={handleLoginSubmit} className="space-y-4">
             <div>
               <h2 className="text-lg font-bold text-[#222222]">Welcome Back</h2>
-              <p className="text-xs text-[#666666]">Sign in to your account with password + Email OTP</p>
+              <p className="text-xs text-[#666666]">Sign in to your account with your email and password</p>
             </div>
 
             <div>
@@ -620,81 +452,13 @@ export const AuthViews: React.FC<AuthViewsProps> = ({
         )}
 
         {/* =========================================
-            VIEW 4: LOGIN OTP (Requirement 7)
-        ========================================= */}
-        {viewState === 'verify_login_otp' && (
-          <form onSubmit={handleVerifyLoginOtp} className="space-y-5">
-            <div className="text-center space-y-1">
-              <div className="w-12 h-12 bg-[#FFF3E8] text-[#FF6A00] rounded-full flex items-center justify-center mx-auto mb-2">
-                <KeyRound className="w-6 h-6" />
-              </div>
-              <h2 className="text-lg font-bold text-[#222222]">Verify Your Login</h2>
-              <p className="text-xs text-[#666666]">
-                We sent a verification code to:<br />
-                <strong className="text-[#222222] font-mono">{maskedEmail || targetEmail}</strong>
-              </p>
-            </div>
-
-            <div className="space-y-2">
-              <label className="block text-xs font-semibold text-center text-[#444444]">
-                Enter OTP:
-              </label>
-              <input
-                type="text"
-                required
-                maxLength={6}
-                value={otpCode}
-                onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
-                placeholder="_ _ _ _ _ _"
-                className="w-full py-3 text-center text-2xl font-mono font-bold tracking-widest border-2 border-[#FF6A00] rounded-xl focus:outline-none bg-[#FFF8F2]"
-              />
-              <div className="text-[11px] text-center text-[#888888]">
-                Expiring in 5 minutes · Single-use
-              </div>
-            </div>
-
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="w-full py-3 bg-[#FF6A00] hover:bg-[#FF8A00] text-white text-xs font-bold rounded-lg transition-colors cursor-pointer shadow-xs"
-            >
-              {isLoading ? 'Authenticating...' : 'VERIFY & LOGIN'}
-            </button>
-
-            <div className="text-center pt-2 space-y-2">
-              <div className="text-xs text-[#666666]">
-                Didn't receive the OTP?{' '}
-                <button
-                  type="button"
-                  disabled={cooldownSeconds > 0 || isLoading}
-                  onClick={() => handleResend('login')}
-                  className={`font-semibold cursor-pointer ${
-                    cooldownSeconds > 0 ? 'text-[#999999]' : 'text-[#FF6A00] hover:underline'
-                  }`}
-                >
-                  {cooldownSeconds > 0 ? `Resend in ${cooldownSeconds}s` : 'Resend OTP'}
-                </button>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => setViewState('login')}
-                className="text-xs text-[#888888] hover:text-[#222222] cursor-pointer"
-              >
-                ← Back to login
-              </button>
-            </div>
-          </form>
-        )}
-
-        {/* =========================================
-            VIEW 5: FORGOT PASSWORD (Requirement 8)
+            VIEW 3: PASSWORD RESET
         ========================================= */}
         {viewState === 'forgot_password' && (
-          <form onSubmit={handleForgotPasswordSubmit} className="space-y-4">
+          <form onSubmit={handleResetPasswordSubmit} className="space-y-4">
             <div>
               <h2 className="text-lg font-bold text-[#222222]">Reset Password</h2>
-              <p className="text-xs text-[#666666]">Enter your registered email to receive a password reset code</p>
+              <p className="text-xs text-[#666666]">Set a new password directly. No email verification code is required.</p>
             </div>
 
             <div>
@@ -706,49 +470,6 @@ export const AuthViews: React.FC<AuthViewsProps> = ({
                 onChange={(e) => setResetEmail(e.target.value)}
                 placeholder="name@example.com"
                 className="w-full px-3 py-2 text-xs border border-[#E5E5E5] rounded-lg focus:border-[#FF6A00] focus:outline-none"
-              />
-            </div>
-
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="w-full py-3 bg-[#FF6A00] hover:bg-[#FF8A00] text-white text-xs font-bold rounded-lg transition-colors cursor-pointer shadow-xs"
-            >
-              {isLoading ? 'Dispatching OTP...' : 'Send Password Reset Code'}
-            </button>
-
-            <div className="text-center pt-1">
-              <button
-                type="button"
-                onClick={() => setViewState('login')}
-                className="text-xs text-[#888888] hover:text-[#222222] cursor-pointer"
-              >
-                ← Back to login
-              </button>
-            </div>
-          </form>
-        )}
-
-        {/* =========================================
-            VIEW 6: RESET PASSWORD WITH OTP (Requirement 8)
-        ========================================= */}
-        {viewState === 'reset_password' && (
-          <form onSubmit={handleResetPasswordSubmit} className="space-y-4">
-            <div>
-              <h2 className="text-lg font-bold text-[#222222]">Set New Password</h2>
-              <p className="text-xs text-[#666666]">Enter the OTP sent to {targetEmail || resetEmail}</p>
-            </div>
-
-            <div>
-              <label className="block text-[11px] font-semibold text-[#444444] mb-1">Reset Verification Code</label>
-              <input
-                type="text"
-                required
-                maxLength={6}
-                value={otpCode}
-                onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
-                placeholder="6-digit OTP"
-                className="w-full py-2.5 text-center font-mono font-bold text-lg border border-[#FF6A00] rounded-lg focus:outline-none bg-[#FFF8F2]"
               />
             </div>
 
@@ -781,8 +502,18 @@ export const AuthViews: React.FC<AuthViewsProps> = ({
               disabled={isLoading}
               className="w-full py-3 bg-[#FF6A00] hover:bg-[#FF8A00] text-white text-xs font-bold rounded-lg transition-colors cursor-pointer shadow-xs"
             >
-              {isLoading ? 'Updating Password...' : 'Save New Password & Continue'}
+              {isLoading ? 'Updating Password...' : 'Save New Password'}
             </button>
+
+            <div className="text-center pt-1">
+              <button
+                type="button"
+                onClick={() => setViewState('login')}
+                className="text-xs text-[#888888] hover:text-[#222222] cursor-pointer"
+              >
+                ← Back to login
+              </button>
+            </div>
           </form>
         )}
 

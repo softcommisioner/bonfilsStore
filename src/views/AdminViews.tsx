@@ -110,68 +110,20 @@ type ProductDraft = typeof emptyProductDraft;
 
 // ------------------------------------------------------------------ sign in
 function AdminGate({ onVerified, onCancel }: { onVerified: (user: User) => void; onCancel: () => void }) {
-  const [step, setStep] = useState<'credentials' | 'otp'>('credentials');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [maskedEmail, setMaskedEmail] = useState('');
-  const [otpCode, setOtpCode] = useState('');
   const [error, setError] = useState('');
-  const [notice, setNotice] = useState('');
   const [busy, setBusy] = useState(false);
-  const [cooldown, setCooldown] = useState(0);
-
-  useEffect(() => {
-    if (cooldown <= 0) return;
-    const timer = setTimeout(() => setCooldown(prev => prev - 1), 1000);
-    return () => clearTimeout(timer);
-  }, [cooldown]);
 
   const submitCredentials = async (event: React.FormEvent) => {
     event.preventDefault();
     setBusy(true);
     setError('');
-    setNotice('');
     try {
       const result = await api.adminLogin({ email: email.trim(), password });
-      if (!result.requireOtp) {
-        setError('Two-step verification is required for administrator access.');
-        return;
-      }
-      setMaskedEmail(result.maskedEmail || result.email);
-      setStep('otp');
-      setNotice(result.message || `A verification code was sent to ${result.maskedEmail || result.email}.`);
-    } catch (err: any) {
-      setError(err.message || 'Sign in failed.');
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const submitOtp = async (event: React.FormEvent) => {
-    event.preventDefault();
-    setBusy(true);
-    setError('');
-    try {
-      const result = await api.verifyAdminOtp(email.trim(), otpCode.trim());
       onVerified(result.user);
     } catch (err: any) {
-      setError(err.message || 'That verification code is not valid.');
-      setOtpCode('');
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const resend = async () => {
-    if (cooldown > 0) return;
-    setBusy(true);
-    setError('');
-    try {
-      const result = await api.resendOtp(email.trim(), 'admin_login');
-      setNotice(result.message || 'A new code is on its way.');
-      setCooldown(45);
-    } catch (err: any) {
-      setError(err.message || 'Could not send a new code.');
+      setError(err.message || 'Sign in failed.');
     } finally {
       setBusy(false);
     }
@@ -186,78 +138,40 @@ function AdminGate({ onVerified, onCancel }: { onVerified: (user: User) => void;
           </div>
           <h1 className="text-lg font-extrabold text-white">Super Admin Console</h1>
           <p className="text-[11px] text-[#777777] leading-relaxed">
-            Restricted access. Credentials plus a one-time email code are required for every session.
+            Restricted access. Sign in with your administrator email and password.
           </p>
         </div>
 
-        {step === 'credentials' ? (
-          <form onSubmit={submitCredentials} className="space-y-4">
-            <div>
-              <label className={labelClass}>Administrator email</label>
-              <input
-                type="email"
-                required
-                autoComplete="username"
-                value={email}
-                onChange={e => setEmail(e.target.value)}
-                className={inputClass}
-                placeholder="iranzibonfils9@gmail.com"
-              />
-            </div>
-            <div>
-              <label className={labelClass}>Password</label>
-              <input
-                type="password"
-                required
-                autoComplete="current-password"
-                value={password}
-                onChange={e => setPassword(e.target.value)}
-                className={inputClass}
-                placeholder="••••••••••••"
-              />
-            </div>
-            {error && <p className="text-[11px] text-red-400">{error}</p>}
-            <button type="submit" disabled={busy} className={`${primaryButton} w-full`}>
-              {busy ? 'Verifying credentials…' : 'Continue to verification'}
-            </button>
-          </form>
-        ) : (
-          <form onSubmit={submitOtp} className="space-y-4">
-            <div className="rounded-lg border border-[#2E2E2E] bg-[#141414] px-3 py-2 text-[11px] text-[#999999]">
-              Code sent to <span className="text-white font-bold">{maskedEmail}</span>
-            </div>
-            <div>
-              <label className={labelClass}>6-digit verification code</label>
-              <input
-                inputMode="numeric"
-                pattern="\d{6}"
-                maxLength={6}
-                required
-                value={otpCode}
-                onChange={e => setOtpCode(e.target.value.replace(/\D/g, ''))}
-                className={`${inputClass} text-center text-lg tracking-[0.4em]`}
-                placeholder="000000"
-              />
-            </div>
-            {notice && <p className="text-[11px] text-emerald-400">{notice}</p>}
-            {error && <p className="text-[11px] text-red-400">{error}</p>}
-            <button type="submit" disabled={busy || otpCode.length !== 6} className={`${primaryButton} w-full`}>
-              {busy ? 'Signing in…' : 'Verify and open console'}
-            </button>
-            <div className="flex items-center justify-between text-[11px]">
-              <button
-                type="button"
-                onClick={() => { setStep('credentials'); setOtpCode(''); setError(''); setNotice(''); }}
-                className="text-[#888888] hover:text-white cursor-pointer"
-              >
-                Use a different account
-              </button>
-              <button type="button" onClick={resend} disabled={busy || cooldown > 0} className="text-[#FF6A00] hover:underline disabled:opacity-50 disabled:cursor-not-allowed">
-                {cooldown > 0 ? `Resend in ${cooldown}s` : 'Resend code'}
-              </button>
-            </div>
-          </form>
-        )}
+        <form onSubmit={submitCredentials} className="space-y-4">
+          <div>
+            <label className={labelClass}>Administrator email</label>
+            <input
+              type="email"
+              required
+              autoComplete="username"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              className={inputClass}
+              placeholder="iranzibonfils9@gmail.com"
+            />
+          </div>
+          <div>
+            <label className={labelClass}>Password</label>
+            <input
+              type="password"
+              required
+              autoComplete="current-password"
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              className={inputClass}
+              placeholder="••••••••••••"
+            />
+          </div>
+          {error && <p className="text-[11px] text-red-400">{error}</p>}
+          <button type="submit" disabled={busy} className={`${primaryButton} w-full`}>
+            {busy ? 'Signing in…' : 'Sign in'}
+          </button>
+        </form>
 
         <div className="pt-4 border-t border-[#262626] text-center">
           <button onClick={onCancel} className="text-[11px] text-[#666666] hover:text-[#BBBBBB] cursor-pointer">

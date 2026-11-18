@@ -72,7 +72,7 @@ async function main() {
     console.log(`Super Admin created for ${email}.`);
   }
 
-  console.log('Sign in at /admin with these credentials, then complete the emailed verification code.');
+  console.log('Sign in at /admin with these credentials. No email verification code is required.');
   await store.close();
 }
 

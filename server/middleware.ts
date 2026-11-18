@@ -69,9 +69,9 @@ export function requireAuth(req: Request, res: Response, next: NextFunction) {
 }
 
 /**
- * Super Admin gate. A session must have been issued by the admin OTP
- * verification endpoint (audience = 'admin'); a normal app login session is
- * never enough, even for a user whose role list contains super_admin.
+ * Super Admin gate. A session must have been issued by the admin sign-in
+ * endpoint (audience = 'admin'); a normal app login session is never enough,
+ * even for a user whose role list contains super_admin.
  */
 export function requireAdmin(req: Request, res: Response, next: NextFunction) {
   if (!req.user) {
@@ -79,7 +79,7 @@ export function requireAdmin(req: Request, res: Response, next: NextFunction) {
     return;
   }
   if (req.session?.audience !== 'admin') {
-    res.status(403).json({ error: 'Admin session required. Please verify your admin email code again.' });
+    res.status(403).json({ error: 'Admin session required. Please sign in through the Super Admin console.' });
     return;
   }
   if (!req.user.roles.includes('super_admin')) {

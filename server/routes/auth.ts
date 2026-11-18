@@ -7,17 +7,10 @@ import {
   clientKey, createSession, hashPassword, loginRateLimiter, newId, safeUser, verifyPassword,
 } from '../security.js';
 import {
-  asyncHandler, consumeOtp, EMAIL_REGEX, issueOtp, normalizeEmail, publicUser, requireString,
+  asyncHandler, EMAIL_REGEX, normalizeEmail, publicUser, requireString,
 } from './helpers.js';
 
 const router = Router();
-
-const PURPOSE_BY_EMAIL: Record<string, 'registration' | 'login' | 'admin_login' | 'password_reset'> = {
-  registration: 'registration',
-  login: 'login',
-  admin_login: 'admin_login',
-  password_reset: 'password_reset',
-};
 
 router.post('/register', asyncHandler(async (req, res) => {
   const { name, email, phone, password, confirmPassword, country, city, accountType, acceptTerms } = req.body || {};
@@ -42,11 +35,8 @@ router.post('/register', asyncHandler(async (req, res) => {
 
   const store = getStore();
   const existing = await store.findUserByEmail(emailNormalized);
-  if (existing && existing.isVerified) {
+  if (existing) {
     return res.status(400).json({ error: 'An account with this email already exists. Please log in.' });
-  }
-  if (existing && existing.roles.includes('super_admin')) {
-    return res.status(403).json({ error: 'This email is reserved for platform administration.' });
   }
 
   const roles: UserRecord['roles'] = accountType === 'seller'
@@ -57,120 +47,70 @@ router.post('/register', asyncHandler(async (req, res) => {
 
   const { hash, salt } = await hashPassword(String(password));
 
-  let user = existing;
-  if (user) {
-    user = (await store.updateUser(user.id, {
-      name: String(name).trim(),
+  const userId = newId('USR');
+  let businessId: string | undefined;
+  if (roles.includes('seller')) {
+    businessId = newId('BIZ');
+    await store.createBusiness({
+      id: businessId,
+      ownerId: userId,
+      name: `${String(name).trim()}'s Shop`,
+      type: 'external',
+      description: `Direct marketplace store managed by ${String(name).trim()}.`,
       phone: String(phone).trim(),
-      country: String(country).trim(),
-      city: String(city).trim(),
-      accountType,
-      roles,
-      passwordHash: hash,
-      passwordSalt: salt,
-    }))!;
-  } else {
-    const userId = newId('USR');
-    let businessId: string | undefined;
-    if (roles.includes('seller')) {
-      businessId = newId('BIZ');
-      await store.createBusiness({
-        id: businessId,
-        ownerId: userId,
-        name: `${String(name).trim()}'s Shop`,
-        type: 'external',
-        description: `Direct marketplace store managed by ${String(name).trim()}.`,
-        phone: String(phone).trim(),
-        email: emailNormalized,
-        country: String(country).trim(),
-        city: String(city).trim(),
-        rating: 5,
-        reviewsCount: 0,
-        totalProducts: 0,
-        totalSales: 0,
-        isVerified: false,
-        status: 'active',
-        shippingTerms: 'Standard delivery in 1-3 business days.',
-        createdAt: new Date().toISOString(),
-      });
-    }
-    user = await store.createUser({
-      id: userId,
-      name: String(name).trim(),
       email: emailNormalized,
-      phone: String(phone).trim(),
       country: String(country).trim(),
       city: String(city).trim(),
-      roles,
-      accountType,
-      isVerified: false,
+      rating: 5,
+      reviewsCount: 0,
+      totalProducts: 0,
+      totalSales: 0,
+      isVerified: true,
       status: 'active',
-      businessId,
-      passwordHash: hash,
-      passwordSalt: salt,
+      shippingTerms: 'Standard delivery in 1-3 business days.',
       createdAt: new Date().toISOString(),
     });
   }
-
-  await issueOtp({
+  const user = await store.createUser({
+    id: userId,
+    name: String(name).trim(),
     email: emailNormalized,
-    purpose: 'registration',
-    recipientName: user.name,
-    purposeText: 'Verify your email address',
-    subject: 'BONFILS STORE - Verify Your Email',
-    payload: { userId: user.id },
+    phone: String(phone).trim(),
+    country: String(country).trim(),
+    city: String(city).trim(),
+    roles,
+    accountType,
+    isVerified: true,
+    status: 'active',
+    businessId,
+    passwordHash: hash,
+    passwordSalt: salt,
+    createdAt: new Date().toISOString(),
   });
 
-  await logActivity({
-    actor: user,
-    action: 'REGISTER_INITIATED',
-    targetType: 'auth',
-    details: `Registration initiated, verification code emailed to ${emailNormalized}.`,
-  });
-
-  res.json({
-    success: true,
-    message: 'Account created! Please enter the 6-digit verification code sent to your email.',
-    email: emailNormalized,
-    expiresInSeconds: 300,
-  });
-}));
-
-router.post('/verify-registration-otp', asyncHandler(async (req, res) => {
-  const { email, code } = req.body || {};
-  if (!email || !code) {
-    return res.status(400).json({ error: 'Email and OTP code are required.' });
-  }
-  const emailNormalized = normalizeEmail(email);
-  const store = getStore();
-
-  const result = await consumeOtp({ req, email: emailNormalized, code: String(code).trim(), purpose: 'registration' });
-  if (!result.ok) {
-    return res.status(result.status).json({ error: result.error });
-  }
-
-  const user = await store.findUserByEmail(emailNormalized);
-  if (!user) {
-    return res.status(404).json({ error: 'User record not found.' });
-  }
-
-  const updated = await store.updateUser(user.id, { isVerified: true, status: 'active' });
   const token = await createSession(user.id, 'app', config.sessionTtlMs);
+  const business = user.businessId ? await store.findBusiness(user.businessId) : undefined;
 
   await logActivity({
     actor: user,
-    action: 'EMAIL_VERIFIED',
+    action: 'REGISTERED',
     targetType: 'auth',
-    details: `Email verified and account activated for ${user.email}.`,
+    details: `Account created and activated for ${emailNormalized}.`,
   });
   await pushNotification({
     userId: user.id,
     title: 'Welcome to BONFILS STORE!',
-    message: 'Your account has been verified. Start shopping or manage your store today.',
+    message: 'Your account is active. Start shopping or manage your store today.',
     type: 'system',
   });
 
-  res.json({ success: true, message: 'Email verified successfully. Welcome to BONFILS STORE.', user: publicUser(updated!), token });
+  res.json({
+    success: true,
+    message: 'Account created successfully. You are now signed in.',
+    user: publicUser(user),
+    token,
+    business,
+  });
 }));
 
 router.post('/login', asyncHandler(async (req, res) => {
@@ -200,115 +140,21 @@ router.post('/login', asyncHandler(async (req, res) => {
   if (user.status !== 'active') {
     return res.status(403).json({ error: 'This account has been disabled. Please contact support.' });
   }
-  if (!user.isVerified) {
-    await issueOtp({
-      email: emailNormalized,
-      purpose: 'registration',
-      recipientName: user.name,
-      purposeText: 'Complete your email verification',
-      subject: 'BONFILS STORE - Verify Your Email',
-      payload: { userId: user.id },
-    });
-    return res.status(403).json({
-      error: 'Your email is not verified yet. We have resent a verification code to your email.',
-      unverified: true,
-      email: emailNormalized,
-    });
-  }
 
-  const { maskedEmail } = await issueOtp({
-    email: emailNormalized,
-    purpose: 'login',
-    recipientName: user.name,
-    purposeText: 'Confirm your sign-in',
-    subject: 'BONFILS STORE - Verify Your Login',
-    payload: { userId: user.id },
-  });
+  const activeUser = user.isVerified
+    ? user
+    : (await store.updateUser(user.id, { isVerified: true, status: 'active' }))!;
 
+  const token = await createSession(activeUser.id, 'app', config.sessionTtlMs);
   await logActivity({
-    actor: user,
-    action: 'LOGIN_OTP_SENT',
-    targetType: 'auth',
-    details: `Login verification code sent to ${maskedEmail}.`,
-  });
-
-  res.json({
-    success: true,
-    requireOtp: true,
-    email: emailNormalized,
-    maskedEmail,
-    message: `We sent a 6-digit verification code to ${maskedEmail}.`,
-    expiresInSeconds: 300,
-  });
-}));
-
-router.post('/verify-login-otp', asyncHandler(async (req, res) => {
-  const { email, code } = req.body || {};
-  if (!email || !code) {
-    return res.status(400).json({ error: 'Email and OTP code are required.' });
-  }
-  const emailNormalized = normalizeEmail(email);
-  const store = getStore();
-
-  const result = await consumeOtp({ req, email: emailNormalized, code: String(code).trim(), purpose: 'login' });
-  if (!result.ok) {
-    return res.status(result.status).json({ error: result.error });
-  }
-
-  const user = await store.findUserByEmail(emailNormalized);
-  if (!user || user.status !== 'active') {
-    return res.status(403).json({ error: 'Account is not active.' });
-  }
-
-  const token = await createSession(user.id, 'app', config.sessionTtlMs);
-  await logActivity({
-    actor: user,
+    actor: activeUser,
     action: 'LOGIN_SUCCESS',
     targetType: 'auth',
-    details: `Successful sign-in for ${user.email}.`,
+    details: `Successful sign-in for ${activeUser.email}.`,
   });
 
-  const business = user.businessId ? await store.findBusiness(user.businessId) : undefined;
-  res.json({ success: true, message: 'Signed in successfully.', user: publicUser(user), token, business });
-}));
-
-router.post('/resend-otp', asyncHandler(async (req, res) => {
-  const { email, purpose } = req.body || {};
-  const emailNormalized = normalizeEmail(email);
-  const resolved = PURPOSE_BY_EMAIL[String(purpose)];
-  if (!emailNormalized || !resolved) {
-    return res.status(400).json({ error: 'A valid email and purpose are required.' });
-  }
-
-  const store = getStore();
-  const user = await store.findUserByEmail(emailNormalized);
-  if (!user) {
-    return res.status(404).json({ error: 'We could not find an account for that email address.' });
-  }
-  if (resolved === 'admin_login' && !user.roles.includes('super_admin')) {
-    return res.status(403).json({ error: 'This account is not authorised for administration.' });
-  }
-
-  const current = await store.latestOtp(emailNormalized, resolved);
-  if (current && Date.now() < current.resendAvailableAt) {
-    const wait = Math.ceil((current.resendAvailableAt - Date.now()) / 1000);
-    return res.status(429).json({ error: `Please wait ${wait} seconds before requesting another code.` });
-  }
-
-  await issueOtp({
-    email: emailNormalized,
-    purpose: resolved,
-    recipientName: user.name,
-    purposeText: resolved === 'admin_login' ? 'Super Admin verification' : 'Your verification code',
-    subject: resolved === 'admin_login'
-      ? 'BONFILS STORE - Super Admin Verification Code'
-      : 'BONFILS STORE - New Verification Code',
-    payload: { userId: user.id },
-    maxAttempts: resolved === 'admin_login' ? config.adminOtpMaxAttempts : config.otpMaxAttempts,
-    isAdmin: resolved === 'admin_login',
-  });
-
-  res.json({ success: true, message: 'A new verification code has been sent to your email.', expiresInSeconds: 300 });
+  const business = activeUser.businessId ? await store.findBusiness(activeUser.businessId) : undefined;
+  res.json({ success: true, message: 'Signed in successfully.', user: publicUser(activeUser), token, business });
 }));
 
 router.post('/forgot-password', asyncHandler(async (req, res) => {
@@ -316,30 +162,18 @@ router.post('/forgot-password', asyncHandler(async (req, res) => {
   if (!emailNormalized) {
     return res.status(400).json({ error: 'Email is required.' });
   }
-  const store = getStore();
-  const user = await store.findUserByEmail(emailNormalized);
-  if (user && user.status === 'active' && user.isVerified) {
-    await issueOtp({
-      email: emailNormalized,
-      purpose: 'password_reset',
-      recipientName: user.name,
-      purposeText: 'Reset your password',
-      subject: 'BONFILS STORE - Password Reset Code',
-      payload: { userId: user.id },
-    });
-  }
   res.json({
     success: true,
     email: emailNormalized,
-    message: 'If an account exists for that email, a password reset code is on its way.',
+    message: 'You can set a new password directly without an email verification code.',
   });
 }));
 
 router.post('/reset-password', asyncHandler(async (req, res) => {
-  const { email, code, newPassword, confirmPassword } = req.body || {};
+  const { email, newPassword, confirmPassword } = req.body || {};
   const emailNormalized = normalizeEmail(email);
-  if (!emailNormalized || !code || !newPassword || !confirmPassword) {
-    return res.status(400).json({ error: 'All fields are required.' });
+  if (!emailNormalized || !newPassword || !confirmPassword) {
+    return res.status(400).json({ error: 'Email, new password and confirmation are required.' });
   }
   if (String(newPassword).length < 8) {
     return res.status(400).json({ error: 'Password must be at least 8 characters long.' });
@@ -349,26 +183,18 @@ router.post('/reset-password', asyncHandler(async (req, res) => {
   }
 
   const store = getStore();
-  const result = await consumeOtp({
-    req,
-    email: emailNormalized,
-    code: String(code).trim(),
-    purpose: 'password_reset',
-  });
-  if (!result.ok) {
-    return res.status(result.status).json({ error: result.error });
-  }
-
   const user = await store.findUserByEmail(emailNormalized);
   if (!user) {
     return res.status(404).json({ error: 'Account not found.' });
   }
-  if (user.roles.includes('super_admin')) {
-    return res.status(403).json({ error: 'Administrator passwords must be changed through the admin console.' });
-  }
 
   const { hash, salt } = await hashPassword(String(newPassword));
-  await store.updateUser(user.id, { passwordHash: hash, passwordSalt: salt });
+  await store.updateUser(user.id, {
+    passwordHash: hash,
+    passwordSalt: salt,
+    isVerified: true,
+    status: 'active',
+  });
   await store.deleteSessionsForUser(user.id);
 
   await logActivity({

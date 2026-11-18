@@ -71,42 +71,21 @@ export const api = {
 
   // -------------------------------------------------------------------- auth
   async register(payload: any) {
-    return this.request<{ success: boolean; message: string; email: string; expiresInSeconds: number }>(
+    const data = await this.request<{ success: boolean; message: string; user: User; token: string; business?: Business }>(
       '/api/auth/register',
       { method: 'POST', body: JSON.stringify(payload) },
-    );
-  },
-
-  async verifyRegistrationOtp(email: string, code: string) {
-    const data = await this.request<{ success: boolean; message: string; user: User; token: string }>(
-      '/api/auth/verify-registration-otp',
-      { method: 'POST', body: JSON.stringify({ email, code }) },
     );
     if (data.token) this.setToken(data.token);
     return data;
   },
 
   async login(payload: { email: string; password: string }) {
-    return this.request<{ success: boolean; requireOtp: boolean; email: string; maskedEmail: string; message: string; expiresInSeconds: number }>(
+    const data = await this.request<{ success: boolean; message: string; user: User; token: string; business?: Business }>(
       '/api/auth/login',
       { method: 'POST', body: JSON.stringify(payload) },
     );
-  },
-
-  async verifyLoginOtp(email: string, code: string) {
-    const data = await this.request<{ success: boolean; message: string; user: User; token: string; business?: Business }>(
-      '/api/auth/verify-login-otp',
-      { method: 'POST', body: JSON.stringify({ email, code }) },
-    );
     if (data.token) this.setToken(data.token);
     return data;
-  },
-
-  async resendOtp(email: string, purpose: 'registration' | 'login' | 'admin_login' | 'password_reset') {
-    return this.request<{ success: boolean; message: string; expiresInSeconds: number }>(
-      '/api/auth/resend-otp',
-      { method: 'POST', body: JSON.stringify({ email, purpose }) },
-    );
   },
 
   async forgotPassword(email: string) {
@@ -116,7 +95,7 @@ export const api = {
     );
   },
 
-  async resetPassword(payload: { email: string; code: string; newPassword: string; confirmPassword: string }) {
+  async resetPassword(payload: { email: string; newPassword: string; confirmPassword: string }) {
     return this.request<{ success: boolean; message: string }>(
       '/api/auth/reset-password',
       { method: 'POST', body: JSON.stringify(payload) },
@@ -144,16 +123,9 @@ export const api = {
 
   // -------------------------------------------------------------- super admin
   async adminLogin(payload: { email: string; password: string }) {
-    return this.request<{ success: boolean; requireOtp: boolean; email: string; maskedEmail: string; message: string }>(
+    const data = await this.request<{ success: boolean; message: string; user: User; token: string }>(
       '/api/admin/login',
       { method: 'POST', body: JSON.stringify(payload) },
-    );
-  },
-
-  async verifyAdminOtp(email: string, code: string) {
-    const data = await this.request<{ success: boolean; message: string; user: User; token: string }>(
-      '/api/admin/verify-otp',
-      { method: 'POST', body: JSON.stringify({ email, code }) },
     );
     if (data.token) this.setAdminToken(data.token);
     return data;
