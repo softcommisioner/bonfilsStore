@@ -5,6 +5,7 @@ import type {
 
 const TOKEN_KEY = 'bonfils_store_auth_token';
 const ADMIN_TOKEN_KEY = 'bonfils_store_admin_token';
+const ADMIN_PROFILE_KEY = 'bonfils_store_admin_profile';
 
 export interface ProductPageResponse extends Paginated<Product> {
   products: Product[];
@@ -28,8 +29,23 @@ export const api = {
   setAdminToken(token: string) {
     localStorage.setItem(ADMIN_TOKEN_KEY, token);
   },
+  getAdminProfile(): User | null {
+    try {
+      const raw = localStorage.getItem(ADMIN_PROFILE_KEY);
+      return raw ? JSON.parse(raw) as User : null;
+    } catch {
+      return null;
+    }
+  },
+  setAdminProfile(user: User) {
+    localStorage.setItem(ADMIN_PROFILE_KEY, JSON.stringify(user));
+  },
+  clearAdminProfile() {
+    localStorage.removeItem(ADMIN_PROFILE_KEY);
+  },
   clearAdminToken() {
     localStorage.removeItem(ADMIN_TOKEN_KEY);
+    localStorage.removeItem(ADMIN_PROFILE_KEY);
   },
 
   // ---------------------------------------------------------------- requests
@@ -128,6 +144,7 @@ export const api = {
       { method: 'POST', body: JSON.stringify(payload) },
     );
     if (data.token) this.setAdminToken(data.token);
+    if (data.user) this.setAdminProfile(data.user);
     return data;
   },
 
@@ -140,7 +157,9 @@ export const api = {
   },
 
   async getAdminSession() {
-    return this.adminRequest<{ success: boolean; user: User }>('/api/admin/session');
+    const data = await this.adminRequest<{ success: boolean; user: User }>('/api/admin/session');
+    if (data.user) this.setAdminProfile(data.user);
+    return data;
   },
 
   async getAdminStats() {

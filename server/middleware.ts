@@ -3,7 +3,7 @@ import { config } from './config.js';
 import { getStore } from './db/index.js';
 import type { Store, UserRecord } from './db/index.js';
 import type { AdminActivityLog, NotificationItem } from '../src/types.js';
-import { newId } from './security.js';
+import { newId, readSessionToken } from './security.js';
 
 declare global {
   // eslint-disable-next-line @typescript-eslint/no-namespace
@@ -42,13 +42,35 @@ export async function authenticateToken(req: Request, res: Response, next: NextF
       next();
       return;
     }
-    const session = await getStore().getSession(token);
-    if (!session) {
+    const store = getStore();
+    let session = await store.getSession(token);
+    let user = session ? await store.findUserById(session.userId) : null;
+
+    // Serverless deployments without a shared database start a fresh memory
+    // store per instance. A signed token still proves the session belongs to a
+    // real admin, so resolve the account by id (or email) instead of rejecting.
+    if (!session && store.kind === 'memory') {
+      const claims = readSessionToken(token);
+      if (claims) {
+        user = await store.findUserById(claims.userId)
+          || (claims.email ? await store.findUserByEmail(claims.email) : null);
+        if (user) {
+          session = {
+            token,
+            userId: user.id,
+            audience: claims.audience,
+            createdAt: claims.issuedAt,
+            expiresAt: claims.expiresAt,
+          };
+        }
+      }
+    }
+
+    if (!session || !user) {
       res.status(401).json({ error: 'Session expired. Please sign in again.' });
       return;
     }
-    const user = await getStore().findUserById(session.userId);
-    if (!user || user.status !== 'active') {
+    if (user.status !== 'active') {
       res.status(401).json({ error: 'Account is not active' });
       return;
     }
@@ -68,6 +90,11 @@ export function requireAuth(req: Request, res: Response, next: NextFunction) {
   next();
 }
 
+export function hasSuperAdminRole(roles: readonly string[] | undefined): boolean {
+  if (!Array.isArray(roles)) return false;
+  return roles.some(role => String(role).toLowerCase().replace(/[^a-z]/g, '') === 'superadmin');
+}
+
 /**
  * Super Admin gate. A session must have been issued by the admin sign-in
  * endpoint (audience = 'admin'); a normal app login session is never enough,
@@ -82,7 +109,7 @@ export function requireAdmin(req: Request, res: Response, next: NextFunction) {
     res.status(403).json({ error: 'Admin session required. Please sign in through the Super Admin console.' });
     return;
   }
-  if (!req.user.roles.includes('super_admin')) {
+  if (!hasSuperAdminRole(req.user.roles)) {
     res.status(403).json({ error: 'Super Admin role required' });
     return;
   }

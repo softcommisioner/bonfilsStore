@@ -185,7 +185,9 @@ function AdminGate({ onVerified, onCancel }: { onVerified: (user: User) => void;
 
 // -------------------------------------------------------------------- console
 export const AdminViews: React.FC<AdminViewsProps> = ({ onNavigate }) => {
-  const [admin, setAdmin] = useState<User | null>(null);
+  const [admin, setAdmin] = useState<User | null>(() => (
+    api.getAdminToken() ? api.getAdminProfile() : null
+  ));
   const [booting, setBooting] = useState(true);
   const [tab, setTab] = useState<AdminTab>('overview');
   const [stats, setStats] = useState<AdminStats | null>(null);
@@ -214,6 +216,12 @@ export const AdminViews: React.FC<AdminViewsProps> = ({ onNavigate }) => {
   const flash = useCallback((message: string) => {
     setToast(message);
     window.setTimeout(() => setToast(''), 3500);
+  }, []);
+
+  const handleVerified = useCallback((user: User) => {
+    api.setAdminProfile(user);
+    setAdmin(user);
+    setBooting(false);
   }, []);
 
   const loadProducts = useCallback(async () => {
@@ -250,8 +258,20 @@ export const AdminViews: React.FC<AdminViewsProps> = ({ onNavigate }) => {
       setEmailLog(emailData);
     } catch (err: any) {
       if (err?.status === 401 || err?.status === 403) {
-        api.clearAdminToken();
-        setAdmin(null);
+        // A single data endpoint must not sign the admin out. Confirm the
+        // session first; only clear the token when the session itself is gone.
+        try {
+          const session = await api.getAdminSession();
+          setAdmin(session.user);
+          setError('Some console data could not be refreshed. Please retry.');
+        } catch (sessionErr: any) {
+          if (sessionErr?.status === 401 || sessionErr?.status === 403) {
+            api.clearAdminToken();
+            setAdmin(null);
+          } else {
+            setError(sessionErr.message || 'Failed to verify the admin session.');
+          }
+        }
       } else {
         setError(err.message || 'Failed to load the console data.');
       }
@@ -261,25 +281,34 @@ export const AdminViews: React.FC<AdminViewsProps> = ({ onNavigate }) => {
   }, [productSearch]);
 
   useEffect(() => {
+    let cancelled = false;
     (async () => {
       if (!api.getAdminToken()) {
-        setBooting(false);
+        api.clearAdminProfile();
+        if (!cancelled) {
+          setAdmin(null);
+          setBooting(false);
+        }
         return;
       }
       try {
         const session = await api.getAdminSession();
-        setAdmin(session.user);
-      } catch {
-        api.clearAdminToken();
+        if (!cancelled) setAdmin(session.user);
+      } catch (err: any) {
+        if (!cancelled && (err?.status === 401 || err?.status === 403)) {
+          api.clearAdminToken();
+          setAdmin(null);
+        }
       } finally {
-        setBooting(false);
+        if (!cancelled) setBooting(false);
       }
     })();
+    return () => { cancelled = true; };
   }, []);
 
   useEffect(() => {
-    if (admin) loadAll();
-  }, [admin]);
+    if (!booting && admin) loadAll();
+  }, [booting, admin]);
 
   useEffect(() => {
     if (!admin || tab !== 'products') return;
@@ -508,7 +537,7 @@ export const AdminViews: React.FC<AdminViewsProps> = ({ onNavigate }) => {
   }
 
   if (!admin) {
-    return <AdminGate onVerified={setAdmin} onCancel={() => onNavigate('/')} />;
+    return <AdminGate onVerified={handleVerified} onCancel={() => onNavigate('/')} />;
   }
 
   return (

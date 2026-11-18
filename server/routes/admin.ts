@@ -3,7 +3,7 @@ import { config } from '../config.js';
 import { getStore } from '../db/index.js';
 import type { UserRecord } from '../db/index.js';
 import type { AdminStats, Product } from '../../src/types.js';
-import { logActivity, pushNotification, requireAdmin } from '../middleware.js';
+import { hasSuperAdminRole, logActivity, pushNotification, requireAdmin } from '../middleware.js';
 import { adminRateLimiter, clientKey, createSession, hashPassword, newId, verifyPassword } from '../security.js';
 import {
   asyncHandler, EMAIL_REGEX, normalizeEmail, publicUser, resolveCategoryName, toNumber,
@@ -41,7 +41,7 @@ router.post('/login', asyncHandler(async (req, res) => {
   const user = await store.findUserByEmail(email);
   const valid = user ? await verifyPassword(password, user.passwordHash, user.passwordSalt) : false;
 
-  if (!user || !valid || !user.roles.includes('super_admin') || user.status !== 'active') {
+  if (!user || !valid || !hasSuperAdminRole(user.roles) || user.status !== 'active') {
     await logActivity({
       actor: null,
       action: 'ADMIN_LOGIN_FAILED',
@@ -51,9 +51,15 @@ router.post('/login', asyncHandler(async (req, res) => {
     return res.status(401).json({ error: 'Invalid Super Admin credentials.' });
   }
 
-  const activeUser = user.isVerified
-    ? user
-    : (await store.updateUser(user.id, { isVerified: true, status: 'active' }))!;
+  // Normalise the stored role to the canonical value and make sure the
+  // account is verified/active before issuing an admin session. This keeps the
+  // hydrated profile and every background admin request consistent.
+  const roles = Array.from(new Set([...user.roles, 'super_admin'])) as UserRecord['roles'];
+  const activeUser = (await store.updateUser(user.id, {
+    roles,
+    isVerified: true,
+    status: 'active',
+  }))!;
 
   // Admin sessions are single audience and short lived. A normal app session
   // can never be used to reach the admin API.

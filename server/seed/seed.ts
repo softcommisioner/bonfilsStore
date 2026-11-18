@@ -2,6 +2,7 @@ import { config } from '../config.js';
 import type { Store, UserRecord } from '../db/index.js';
 import { getStore, initStore } from '../db/index.js';
 import { hashPassword } from '../security.js';
+import { hasSuperAdminRole } from '../middleware.js';
 import type { Category, Product } from '../../src/types.js';
 import {
   buildDemoUser, CATEGORY_RENAMES, demoUsers, remapCategoryImageUrls, RETIRED_CATEGORIES,
@@ -103,7 +104,7 @@ async function migrateCategoryStructure(store: Store): Promise<void> {
 
 export async function ensureSuperAdmin(store: Store): Promise<UserRecord | null> {
   if (!config.superAdminEmail || !config.superAdminPassword) {
-    const existing = (await store.listUsers()).find(user => user.roles.includes('super_admin'));
+    const existing = (await store.listUsers()).find(user => hasSuperAdminRole(user.roles));
     if (!existing) {
       console.warn(
         '[seed] No super admin exists and SUPER_ADMIN_EMAIL / SUPER_ADMIN_PASSWORD are not set. ' +
@@ -139,7 +140,7 @@ export async function ensureSuperAdmin(store: Store): Promise<UserRecord | null>
     return admin;
   }
 
-  if (!existing.roles.includes('super_admin') || existing.status !== 'active') {
+  if (!hasSuperAdminRole(existing.roles) || existing.status !== 'active' || !existing.isVerified) {
     const updated = await store.updateUser(existing.id, {
       roles: Array.from(new Set([...existing.roles, 'super_admin'] as UserRecord['roles'])),
       status: 'active',
