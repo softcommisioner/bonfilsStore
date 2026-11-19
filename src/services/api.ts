@@ -45,8 +45,9 @@ export const api = {
       return null;
     }
   },
-  setUserBusiness(business: Business) {
-    localStorage.setItem(USER_BUSINESS_KEY, JSON.stringify(business));
+  setUserBusiness(business: Business | null) {
+    if (business) localStorage.setItem(USER_BUSINESS_KEY, JSON.stringify(business));
+    else localStorage.removeItem(USER_BUSINESS_KEY);
   },
 
   getAdminToken(): string | null {
@@ -143,7 +144,7 @@ export const api = {
     );
     if (data.token) this.setToken(data.token);
     if (data.user) this.setUserProfile(data.user);
-    if (data.business) this.setUserBusiness(data.business);
+    this.setUserBusiness(data.business || null);
     return data;
   },
 
@@ -156,7 +157,7 @@ export const api = {
     );
     if (data.token) this.setToken(data.token);
     if (data.user) this.setUserProfile(data.user);
-    if (data.business) this.setUserBusiness(data.business);
+    this.setUserBusiness(data.business || null);
     return data;
   },
 
@@ -183,7 +184,7 @@ export const api = {
   async getMe() {
     const data = await this.request<{ user: User; business?: Business }>('/api/auth/me');
     if (data.user) this.setUserProfile(data.user);
-    if (data.business) this.setUserBusiness(data.business);
+    this.setUserBusiness(data.business || null);
     return data;
   },
 

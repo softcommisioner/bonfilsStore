@@ -61,7 +61,6 @@ export class MemoryStore implements Store {
   };
 
   private snapshotPath: string | null = null;
-  private saveTimer: NodeJS.Timeout | null = null;
 
   constructor(snapshotPath?: string | null) {
     this.snapshotPath = snapshotPath || null;
@@ -100,11 +99,14 @@ export class MemoryStore implements Store {
     this.writeSnapshot();
   }
 
-  /** Coalesces bursts of writes into a single snapshot. */
+  /**
+   * Persist every mutation immediately. The previous 250ms debounce could lose
+   * a product, order or profile write when the browser was reloaded or the
+   * process restarted right after a successful API response.
+   */
   private flush(): void {
     if (!this.snapshotPath) return;
-    if (this.saveTimer) clearTimeout(this.saveTimer);
-    this.saveTimer = setTimeout(() => this.writeSnapshot(), 250);
+    this.writeSnapshot();
   }
 
   /**
@@ -444,6 +446,11 @@ export class MemoryStore implements Store {
     this.tables.shippingOrders[index] = { ...this.tables.shippingOrders[index], ...patch };
     this.flush();
     return clone(this.tables.shippingOrders[index]);
+  }
+
+  async clearShippingOrders(): Promise<void> {
+    this.tables.shippingOrders = [];
+    this.flush();
   }
 
   async addActivityLog(log: AdminActivityLog): Promise<void> {

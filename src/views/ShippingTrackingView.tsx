@@ -73,7 +73,7 @@ export const ShippingTrackingView: React.FC<ShippingTrackingViewProps> = ({ init
             type="text"
             value={trackingInput}
             onChange={(e) => setTrackingInput(e.target.value)}
-            placeholder="e.g. BFS-TRK-789214"
+            placeholder="Enter your tracking number"
             className="w-full px-4 py-3 text-sm text-[#222222] focus:outline-none font-mono"
           />
           <button
@@ -86,9 +86,6 @@ export const ShippingTrackingView: React.FC<ShippingTrackingViewProps> = ({ init
           </button>
         </form>
 
-        <div className="text-[11px] text-[#888888] pt-1">
-          Demo tracking number available to test: <button onClick={() => { setTrackingInput('BFS-TRK-789214'); handleTrack('BFS-TRK-789214'); }} className="text-[#FF6A00] font-mono font-bold hover:underline cursor-pointer">BFS-TRK-789214</button>
-        </div>
       </div>
 
       {error && (

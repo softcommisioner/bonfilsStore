@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   Package, PlaneTakeoff, User, MapPin, Store, 
   ArrowLeftRight, Clock, CheckCircle2, ChevronRight, ExternalLink 
@@ -35,26 +35,29 @@ export const CustomerAccountView: React.FC<CustomerAccountViewProps> = ({
     setActiveTab(initialTab);
   }, [initialTab]);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      setIsLoading(true);
-      try {
-        const [ordersData, chinaData] = await Promise.all([
-          api.getOrders(),
-          api.getChinaRequests(user?.email),
-        ]);
-        setOrders(ordersData || []);
-        setChinaRequests(chinaData || []);
-      } catch (err) {
-        console.error('Error fetching account data', err);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    if (user) {
-      fetchData();
+  const fetchData = useCallback(async () => {
+    if (!user) return;
+    setIsLoading(true);
+    try {
+      const [ordersData, chinaData] = await Promise.all([
+        api.getOrders(),
+        api.getChinaRequests(user.email),
+      ]);
+      setOrders(ordersData || []);
+      setChinaRequests(chinaData || []);
+    } catch (err) {
+      console.error('Error fetching account data', err);
+    } finally {
+      setIsLoading(false);
     }
   }, [user]);
+
+  useEffect(() => {
+    fetchData();
+    const handleFocus = () => { void fetchData(); };
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
+  }, [fetchData, activeTab]);
 
   const handleProfileSave = async (e: React.FormEvent) => {
     e.preventDefault();

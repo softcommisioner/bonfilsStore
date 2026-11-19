@@ -445,7 +445,7 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({ onNavi
                           type="text"
                           value={orderTrackingNum}
                           onChange={(e) => setOrderTrackingNum(e.target.value)}
-                          placeholder="Tracking # (e.g. KGL-8812)"
+                          placeholder="Tracking #"
                           className="px-2.5 py-1 text-xs border border-[#E5E5E5] rounded focus:border-[#FF6A00] focus:outline-none"
                         />
                         <button

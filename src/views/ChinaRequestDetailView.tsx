@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   PlaneTakeoff, ArrowLeft, CheckCircle2, Clock, AlertCircle, 
   DollarSign, ShieldCheck, MapPin, Truck, ChevronRight 
@@ -18,7 +18,7 @@ export const ChinaRequestDetailView: React.FC<ChinaRequestDetailViewProps> = ({ 
   const [responseNotes, setResponseNotes] = useState('');
   const [actionSuccess, setActionSuccess] = useState('');
 
-  const fetchRequest = async () => {
+  const fetchRequest = useCallback(async () => {
     setIsLoading(true);
     try {
       const data = await api.getChinaRequest(requestId);
@@ -28,11 +28,14 @@ export const ChinaRequestDetailView: React.FC<ChinaRequestDetailViewProps> = ({ 
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [requestId]);
 
   useEffect(() => {
     fetchRequest();
-  }, [requestId]);
+    const handleFocus = () => { void fetchRequest(); };
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
+  }, [fetchRequest]);
 
   const handleQuotationResponse = async (action: 'accept' | 'reject') => {
     if (!request) return;

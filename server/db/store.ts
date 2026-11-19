@@ -141,6 +141,7 @@ export interface Store {
   findShippingOrderByTracking(trackingNumber: string): Promise<ShippingOrder | null>;
   createShippingOrder(shipment: ShippingOrder): Promise<ShippingOrder>;
   updateShippingOrder(id: string, patch: Partial<ShippingOrder>): Promise<ShippingOrder | null>;
+  clearShippingOrders(): Promise<void>;
 
   addActivityLog(log: AdminActivityLog): Promise<void>;
   listActivityLogs(limit: number): Promise<AdminActivityLog[]>;

@@ -767,6 +767,10 @@ export class PostgresStore implements Store {
     return rows[0] ? mapShippingOrder(rows[0]) : null;
   }
 
+  async clearShippingOrders(): Promise<void> {
+    await this.query('DELETE FROM shipping_orders');
+  }
+
   async addActivityLog(log: AdminActivityLog): Promise<void> {
     await this.query(
       `INSERT INTO activity_logs (id, actor_id, actor_name, actor_role, action, target_type, target_id, details, timestamp)

@@ -225,7 +225,21 @@ async function seedProductsIfMissing(store: Store) {
   }
 }
 
+/**
+ * Shipping is intentionally kept at zero. All real tracking numbers live on
+ * orders and China sourcing requests; `shipping_orders` only ever held the old
+ * seeded demo shipments. Clearing it never touches users, businesses, stores,
+ * products, orders or configuration.
+ */
+async function clearDemoShippingData(store: Store): Promise<void> {
+  const existing = await store.listShippingOrders();
+  if (existing.length === 0) return;
+  await store.clearShippingOrders();
+  log(`cleared ${existing.length} legacy demo shipping record(s)`);
+}
+
 export async function runSeed(store: Store = getStore()): Promise<void> {
+  await clearDemoShippingData(store);
   await migrateCategoryStructure(store);
   await seedCategoriesIfMissing(store);
   await seedBusinessesIfMissing(store);
