@@ -235,4 +235,107 @@ CREATE TABLE IF NOT EXISTS media (
   data       TEXT NOT NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+-- ---------------------------------------------------------------------------
+-- Supabase starter-table compatibility.
+-- migrations 0004-0007 created uuid-keyed businesses/categories/products with
+-- different column names and no images column. CREATE TABLE IF NOT EXISTS does
+-- not repair those tables, so product uploads and saves failed with a bare 500
+-- ("column images does not exist"). These idempotent statements self-heal both
+-- schemas without touching an already-correct application-owned database.
+-- ---------------------------------------------------------------------------
+DO $compat$
+DECLARE
+  fk RECORD;
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = current_schema() AND table_name = 'businesses' AND column_name = 'id' AND data_type = 'uuid') THEN
+    FOR fk IN SELECT conname, conrelid::regclass AS tbl FROM pg_constraint WHERE contype = 'f' AND (confrelid = 'businesses'::regclass OR conrelid = 'businesses'::regclass) LOOP
+      EXECUTE format('ALTER TABLE %s DROP CONSTRAINT %I', fk.tbl, fk.conname);
+    END LOOP;
+    EXECUTE 'ALTER TABLE businesses ALTER COLUMN id DROP DEFAULT';
+    EXECUTE 'ALTER TABLE businesses ALTER COLUMN id TYPE TEXT USING id::text';
+    EXECUTE 'ALTER TABLE businesses ALTER COLUMN owner_id TYPE TEXT USING owner_id::text';
+  END IF;
+
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = current_schema() AND table_name = 'categories' AND column_name = 'id' AND data_type = 'uuid') THEN
+    FOR fk IN SELECT conname, conrelid::regclass AS tbl FROM pg_constraint WHERE contype = 'f' AND confrelid = 'categories'::regclass LOOP
+      EXECUTE format('ALTER TABLE %s DROP CONSTRAINT %I', fk.tbl, fk.conname);
+    END LOOP;
+    EXECUTE 'ALTER TABLE categories ALTER COLUMN id DROP DEFAULT';
+    EXECUTE 'ALTER TABLE categories ALTER COLUMN id TYPE TEXT USING id::text';
+  END IF;
+
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = current_schema() AND table_name = 'products' AND column_name = 'id' AND data_type = 'uuid') THEN
+    FOR fk IN SELECT conname, conrelid::regclass AS tbl FROM pg_constraint WHERE contype = 'f' AND (confrelid = 'products'::regclass OR conrelid = 'products'::regclass) LOOP
+      EXECUTE format('ALTER TABLE %s DROP CONSTRAINT %I', fk.tbl, fk.conname);
+    END LOOP;
+    EXECUTE 'ALTER TABLE products ALTER COLUMN id DROP DEFAULT';
+    EXECUTE 'ALTER TABLE products ALTER COLUMN id TYPE TEXT USING id::text';
+    EXECUTE 'ALTER TABLE products ALTER COLUMN business_id TYPE TEXT USING business_id::text';
+  END IF;
+END $compat$;
+
+ALTER TABLE businesses ADD COLUMN IF NOT EXISTS name TEXT NOT NULL DEFAULT '';
+ALTER TABLE businesses ADD COLUMN IF NOT EXISTS owner_id TEXT;
+ALTER TABLE businesses ADD COLUMN IF NOT EXISTS type TEXT NOT NULL DEFAULT 'seller';
+ALTER TABLE businesses ADD COLUMN IF NOT EXISTS logo TEXT NOT NULL DEFAULT '';
+ALTER TABLE businesses ADD COLUMN IF NOT EXISTS location TEXT NOT NULL DEFAULT '';
+ALTER TABLE businesses ADD COLUMN IF NOT EXISTS website TEXT NOT NULL DEFAULT '';
+ALTER TABLE businesses ADD COLUMN IF NOT EXISTS rating NUMERIC(3,2) NOT NULL DEFAULT 5.00;
+ALTER TABLE businesses ADD COLUMN IF NOT EXISTS reviews_count INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE businesses ADD COLUMN IF NOT EXISTS total_products INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE businesses ADD COLUMN IF NOT EXISTS total_sales INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE businesses ADD COLUMN IF NOT EXISTS is_verified BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE businesses ADD COLUMN IF NOT EXISTS shipping_terms TEXT NOT NULL DEFAULT '';
+
+ALTER TABLE categories ADD COLUMN IF NOT EXISTS image TEXT;
+ALTER TABLE categories ADD COLUMN IF NOT EXISTS icon TEXT;
+ALTER TABLE categories ADD COLUMN IF NOT EXISTS sort_order INTEGER NOT NULL DEFAULT 0;
+
+ALTER TABLE products ADD COLUMN IF NOT EXISTS seller_name TEXT NOT NULL DEFAULT '';
+ALTER TABLE products ADD COLUMN IF NOT EXISTS is_official BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE products ADD COLUMN IF NOT EXISTS title TEXT NOT NULL DEFAULT '';
+ALTER TABLE products ADD COLUMN IF NOT EXISTS description TEXT NOT NULL DEFAULT '';
+ALTER TABLE products ADD COLUMN IF NOT EXISTS category TEXT NOT NULL DEFAULT 'Other';
+ALTER TABLE products ADD COLUMN IF NOT EXISTS brand TEXT NOT NULL DEFAULT '';
+ALTER TABLE products ADD COLUMN IF NOT EXISTS price NUMERIC(12,2) NOT NULL DEFAULT 0;
+ALTER TABLE products ADD COLUMN IF NOT EXISTS original_price NUMERIC(12,2);
+ALTER TABLE products ADD COLUMN IF NOT EXISTS stock INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE products ADD COLUMN IF NOT EXISTS images TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[];
+ALTER TABLE products ADD COLUMN IF NOT EXISTS rating NUMERIC(3,2) NOT NULL DEFAULT 5.00;
+ALTER TABLE products ADD COLUMN IF NOT EXISTS reviews_count INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE products ADD COLUMN IF NOT EXISTS sales_count INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE products ADD COLUMN IF NOT EXISTS shipping_origin TEXT NOT NULL DEFAULT '';
+ALTER TABLE products ADD COLUMN IF NOT EXISTS shipping_time_days TEXT NOT NULL DEFAULT '';
+ALTER TABLE products ADD COLUMN IF NOT EXISTS specifications JSONB NOT NULL DEFAULT '{}'::JSONB;
+ALTER TABLE products ADD COLUMN IF NOT EXISTS is_featured BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE products ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT TRUE;
+
+DO $backfill$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = current_schema() AND table_name = 'businesses' AND column_name = 'business_name') THEN
+    EXECUTE $sql$ UPDATE businesses SET name = business_name WHERE name = '' $sql$;
+    EXECUTE $sql$ UPDATE businesses SET location = address WHERE location = '' $sql$;
+  END IF;
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = current_schema() AND table_name = 'categories' AND column_name = 'image_url') THEN
+    EXECUTE $sql$ UPDATE categories SET image = image_url WHERE image IS NULL AND image_url IS NOT NULL $sql$;
+  END IF;
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = current_schema() AND table_name = 'products' AND column_name = 'name') THEN
+    EXECUTE $sql$ UPDATE products SET title = name WHERE title = '' $sql$;
+  END IF;
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = current_schema() AND table_name = 'products' AND column_name = 'stock_quantity') THEN
+    EXECUTE $sql$ UPDATE products SET stock = stock_quantity WHERE stock = 0 $sql$;
+  END IF;
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = current_schema() AND table_name = 'products' AND column_name = 'status') THEN
+    EXECUTE $sql$ UPDATE products SET is_active = TRUE WHERE status = 'active' $sql$;
+    EXECUTE $sql$ UPDATE products SET is_active = FALSE WHERE status IN ('inactive', 'out_of_stock') $sql$;
+  END IF;
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = current_schema() AND table_name = 'products' AND column_name = 'category_id') THEN
+    EXECUTE $sql$
+      UPDATE products p SET category = c.name
+      FROM categories c
+      WHERE p.category_id::text = c.id::text AND p.category = 'Other'
+    $sql$;
+  END IF;
+END $backfill$;
 `;

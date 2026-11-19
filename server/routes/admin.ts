@@ -705,7 +705,7 @@ router.get('/emails', requireAdmin, asyncHandler(async (req, res) => {
 router.post('/uploads', requireAdmin, asyncHandler(async (req, res) => {
   try {
     const { dataUrl, filename, folder } = req.body || {};
-    if (typeof dataUrl !== 'string') {
+    if (typeof dataUrl !== 'string' || !dataUrl.trim()) {
       return res.status(400).json({ error: 'A base64 data URL is required.' });
     }
     const match = /^data:([a-zA-Z0-9/+.-]+);base64,(.+)$/.exec(dataUrl.trim());
@@ -717,6 +717,7 @@ router.post('/uploads', requireAdmin, asyncHandler(async (req, res) => {
       mime: match[1],
       filename: typeof filename === 'string' && filename ? filename : 'image.png',
       folder: typeof folder === 'string' && folder ? folder : 'products',
+      dataUrl: dataUrl.trim(),
     });
     res.json({ success: true, ...result });
   } catch (error) {

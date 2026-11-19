@@ -139,15 +139,17 @@ router.post('/uploads', asyncHandler(async (req, res) => {
 
   try {
     const { dataUrl, filename, folder } = req.body || {};
-    if (typeof dataUrl !== 'string') {
+    if (typeof dataUrl !== 'string' || !dataUrl.trim()) {
       return res.status(400).json({ error: 'A base64 data URL is required.' });
     }
-    const { data, mime } = readDataUrl(dataUrl);
+    const trimmed = dataUrl.trim();
+    const { data, mime } = readDataUrl(trimmed);
     const result = await uploadImage({
       data,
       mime,
       filename: typeof filename === 'string' && filename ? filename : 'image.png',
       folder: typeof folder === 'string' && folder ? folder : 'products',
+      dataUrl: trimmed,
     });
     res.json({ success: true, url: result.url, storage: result.storage, maxBytes: config.maxUploadBytes });
   } catch (error) {

@@ -21,9 +21,8 @@ function buildStore(): Store {
     return new PostgresStore(config.databaseUrl);
   }
   if (config.isServerless) {
-    throw new Error(
-      'DATABASE_URL is required in serverless deployments. Without it every write would live only in the current function instance and disappear on the next request.',
-    );
+    console.warn('[db] no POSTGRES_URL / DATABASE_URL set in serverless environment - using ephemeral in-memory store for this instance');
+    return new MemoryStore(null);
   }
   console.log('[db] no POSTGRES_URL / DATABASE_URL set - using local JSON store at ./data/bonfils-store.json');
   return new MemoryStore(path.join(process.cwd(), 'data', 'bonfils-store.json'));

@@ -23,6 +23,7 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
 const url = process.env.SUPABASE_URL?.trim();
 const anonKey = process.env.SUPABASE_ANON_KEY?.trim();
+const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
 
 /** True for `sb_secret_...` keys and for legacy JWTs whose role is service_role. */
 function isServiceRoleKey(key: string): boolean {
@@ -50,6 +51,24 @@ if (isSupabaseConfigured && isServiceRoleKey(anonKey!)) {
 }
 
 export const SUPABASE_BUCKET = 'china-request-images';
+export const PRODUCT_IMAGES_BUCKET = 'product-images';
+
+/** Service-role client for trusted, already-authenticated product image writes. */
+export function isProductStorageConfigured(): boolean {
+  return Boolean(url && serviceRoleKey);
+}
+
+export function productStorageClient(): SupabaseClient {
+  if (!url || !serviceRoleKey) {
+    throw new Error(
+      'Product image storage needs SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY. ' +
+        'The upload endpoints authenticate the seller/admin before calling this client.',
+    );
+  }
+  return createClient(url, serviceRoleKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+}
 
 export class SupabaseNotConfiguredError extends Error {
   constructor() {

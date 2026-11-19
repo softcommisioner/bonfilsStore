@@ -1,7 +1,6 @@
 import { put } from '@vercel/blob';
 import { config } from '../config.js';
-import { getStore } from '../db/index.js';
-import { newId } from '../security.js';
+import { isProductStorageConfigured, PRODUCT_IMAGES_BUCKET, productStorageClient } from './supabaseServer.js';
 
 const ALLOWED_MIME = new Set([
   'image/jpeg',
@@ -11,15 +10,6 @@ const ALLOWED_MIME = new Set([
   'image/gif',
   'image/svg+xml',
 ]);
-
-const EXTENSION: Record<string, string> = {
-  'image/jpeg': 'jpg',
-  'image/png': 'png',
-  'image/webp': 'webp',
-  'image/avif': 'avif',
-  'image/gif': 'gif',
-  'image/svg+xml': 'svg',
-};
 
 export class UploadError extends Error {
   constructor(message: string, readonly status = 400) {
@@ -43,21 +33,24 @@ function safeName(original: string): string {
 }
 
 /**
- * Uploads an image to Vercel Blob when BLOB_READ_WRITE_TOKEN is configured and
- * otherwise stores it in the database media table so uploads keep working in
- * every environment. Returns the public URL.
+ * Returns a durable image URL without touching the local filesystem.
+ * Prefers configured object storage (Vercel Blob / Supabase Storage) and
+ * otherwise returns the provided base64 data URL directly so uploads keep
+ * working on read-only/serverless environments without a database.
  */
 export async function uploadImage(params: {
   data: Buffer;
   mime: string;
   filename: string;
   folder?: string;
-}): Promise<{ url: string; storage: 'blob' | 'database' }> {
+  dataUrl?: string;
+}): Promise<{ url: string; storage: 'blob' | 'supabase' | 'data-url' }> {
   assertSupportedImage(params.mime, params.data.byteLength);
+  const objectName = `${Date.now()}-${safeName(params.filename)}`;
 
   if (config.blobToken) {
     try {
-      const result = await put(`${params.folder || 'products'}/${Date.now()}-${safeName(params.filename)}`, params.data, {
+      const result = await put(`${params.folder || 'products'}/${objectName}`, params.data, {
         access: 'public',
         token: config.blobToken,
         contentType: params.mime,
@@ -65,14 +58,27 @@ export async function uploadImage(params: {
       });
       return { url: result.url, storage: 'blob' };
     } catch (error) {
-      console.error('[upload] Vercel Blob upload failed, falling back to database storage', error);
+      console.error('[upload] Vercel Blob upload failed, trying next storage option', error);
     }
   }
 
-  const id = newId('MED');
-  const encoded = params.data.toString('base64');
-  await getStore().createMedia({ id, mime: params.mime, data: encoded, createdAt: Date.now() });
-  return { url: `/api/media/${id}.${EXTENSION[params.mime] || 'bin'}`, storage: 'database' };
+  if (isProductStorageConfigured()) {
+    try {
+      const path = `${params.folder || 'products'}/${objectName}`;
+      const client = productStorageClient();
+      const { error } = await client.storage
+        .from(PRODUCT_IMAGES_BUCKET)
+        .upload(path, params.data, { contentType: params.mime, upsert: true });
+      if (error) throw new Error(error.message);
+      const { data: publicUrl } = client.storage.from(PRODUCT_IMAGES_BUCKET).getPublicUrl(path);
+      return { url: publicUrl.publicUrl, storage: 'supabase' };
+    } catch (error) {
+      console.error('[upload] Supabase Storage upload failed, falling back to data URL', error);
+    }
+  }
+
+  const url = params.dataUrl || `data:${params.mime};base64,${params.data.toString('base64')}`;
+  return { url, storage: 'data-url' };
 }
 
 export function readDataUrl(dataUrl: string): { data: Buffer; mime: string } {

@@ -43,7 +43,7 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({ onNavi
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [prodTitle, setProdTitle] = useState('');
   const [prodDesc, setProdDesc] = useState('');
-  const [prodCategory, setProdCategory] = useState('');
+  const [prodCategory, setProdCategory] = useState('Other');
   const [prodPrice, setProdPrice] = useState('');
   const [prodOriginalPrice, setProdOriginalPrice] = useState('');
   const [prodStock, setProdStock] = useState('20');
@@ -124,7 +124,7 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({ onNavi
     setEditingProduct(null);
     setProdTitle('');
     setProdDesc('');
-    setProdCategory(categories[0]?.name || '');
+    setProdCategory(categories[0]?.name || 'Other');
     setProdPrice('');
     setProdOriginalPrice('');
     setProdStock('20');
@@ -191,7 +191,7 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({ onNavi
         price: prodPrice,
         originalPrice: prodOriginalPrice || undefined,
         stock: prodStock,
-        images: prodImage ? [prodImage] : ['/src/assets/images/product_cctv_camera_1790334796559.jpg'],
+        images: prodImage ? [prodImage] : [],
         shippingTimeDays: shippingTime,
         fulfillmentStatus,
         estimatedDeliveryDays: estimatedDeliveryDays || null,
@@ -733,7 +733,7 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({ onNavi
                     className="w-full px-3 py-2 border border-[#E5E5E5] rounded-lg focus:border-[#FF6A00] focus:outline-none bg-white"
                   >
                     {categories.length === 0 && (
-                      <option value="">No categories available</option>
+                      <option value="Other">Other</option>
                     )}
                     {categories.map(category => (
                       <option key={category.id} value={category.name}>{category.name}</option>

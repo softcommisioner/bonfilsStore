@@ -96,7 +96,7 @@ const emptyProductDraft = {
   id: '',
   title: '',
   description: '',
-  category: '',
+  category: 'Other',
   brand: '',
   price: '',
   originalPrice: '',
@@ -778,7 +778,7 @@ export const AdminViews: React.FC<AdminViewsProps> = ({ onNavigate }) => {
                   className={primaryButton}
                   onClick={() => {
                     setProductImagePreview('');
-                    setProductDraft({ ...emptyProductDraft, category: categories[0]?.name || '' });
+                    setProductDraft({ ...emptyProductDraft, category: categories[0]?.name || 'Other' });
                   }}
                 >
                   <Plus className="w-3.5 h-3.5 mr-1 inline" />New product
@@ -1324,6 +1324,7 @@ export const AdminViews: React.FC<AdminViewsProps> = ({ onNavigate }) => {
             <div>
               <label className={labelClass}>Category</label>
               <select className={inputClass} value={productDraft.category} onChange={e => setProductDraft({ ...productDraft, category: e.target.value })}>
+                {categories.length === 0 && <option value="Other">Other</option>}
                 {categories.map(category => <option key={category.id} value={category.name}>{category.name}</option>)}
               </select>
             </div>

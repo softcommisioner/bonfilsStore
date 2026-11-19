@@ -56,12 +56,20 @@ export function createServer(): Express {
     });
   }
 
-  app.use((error: Error & { status?: number }, _req: Request, res: Response, _next: NextFunction) => {
-    const status = error instanceof UploadError ? error.status : error.status || 500;
+  app.use((error: Error & { status?: number; type?: string }, _req: Request, res: Response, _next: NextFunction) => {
+    let status = error instanceof UploadError ? error.status : error.status || 500;
+    let message = error.message || 'Unexpected server error. Please try again.';
+    if (error.type === 'entity.too.large' || error.type === 'entity.parse.failed') {
+      status = 413;
+      message = 'The image payload is too large or malformed. Please choose a smaller image and retry.';
+    }
     if (status >= 500) {
       console.error('[api] unhandled error', error);
     }
-    res.status(status).json({ error: status >= 500 ? 'Unexpected server error. Please try again.' : error.message });
+    res.status(status).json({
+      error: message,
+      ...(status >= 500 ? { detail: error.message || 'No additional detail available.' } : {}),
+    });
   });
 
   return app;
