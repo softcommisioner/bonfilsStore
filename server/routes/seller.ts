@@ -226,7 +226,7 @@ router.put('/profile', asyncHandler(async (req, res) => {
   const patch: Record<string, unknown> = {};
   for (const field of [
     'name', 'description', 'phone', 'email', 'country', 'city', 'shippingTerms',
-    'momoPayCode', 'airtelMoneyCode', 'whatsappNumber',
+    'momoPayCode', 'airtelMoneyCode', 'bankName', 'bankAccountName', 'bankAccountNumber', 'whatsappNumber',
   ] as const) {
     if (req.body?.[field] !== undefined) patch[field] = String(req.body[field]).trim();
   }

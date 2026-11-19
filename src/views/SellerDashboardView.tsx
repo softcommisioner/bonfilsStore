@@ -32,6 +32,9 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({ onNavi
   const [formError, setFormError] = useState('');
   const [momoPayCode, setMomoPayCode] = useState('');
   const [airtelMoneyCode, setAirtelMoneyCode] = useState('');
+  const [bankName, setBankName] = useState('');
+  const [bankAccountName, setBankAccountName] = useState('');
+  const [bankAccountNumber, setBankAccountNumber] = useState('');
   const [whatsappNumber, setWhatsappNumber] = useState('');
   const [paymentSaved, setPaymentSaved] = useState(false);
 
@@ -83,6 +86,9 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({ onNavi
     if (!business) return;
     setMomoPayCode(business.momoPayCode || '');
     setAirtelMoneyCode(business.airtelMoneyCode || '');
+    setBankName(business.bankName || '');
+    setBankAccountName(business.bankAccountName || '');
+    setBankAccountNumber(business.bankAccountNumber || '');
     setWhatsappNumber(business.whatsappNumber || '');
   }, [business]);
 
@@ -94,6 +100,9 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({ onNavi
       const result = await api.updateSellerProfile({
         momoPayCode: momoPayCode.trim(),
         airtelMoneyCode: airtelMoneyCode.trim(),
+        bankName: bankName.trim(),
+        bankAccountName: bankAccountName.trim(),
+        bankAccountNumber: bankAccountNumber.trim(),
         whatsappNumber: whatsappNumber.trim(),
       });
       setBusiness(result.business);
@@ -581,10 +590,10 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({ onNavi
           <div className="max-w-2xl space-y-4">
             <div>
               <h3 className="text-sm font-bold text-[#222222] uppercase tracking-wide">
-                Mobile Money Payment Details
+                Payment Collection Details
               </h3>
               <p className="text-xs text-[#666666] mt-1">
-                Add the codes buyers should pay at checkout. These appear with your products in the order summary.
+                Add the MoMo Pay, Airtel, and bank details buyers should use at checkout. These appear beside your products in the order summary.
               </p>
             </div>
 
@@ -601,12 +610,45 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({ onNavi
               </div>
 
               <div>
-                <label className="block font-semibold text-[#444444] mb-1">Airtel Money details</label>
+                <label className="block font-semibold text-[#444444] mb-1">Airtel Money USSD / code</label>
                 <input
                   type="text"
                   value={airtelMoneyCode}
                   onChange={(e) => setAirtelMoneyCode(e.target.value)}
-                  placeholder="e.g. Airtel number or pay code"
+                  placeholder="e.g. *150*00*000000#"
+                  className="w-full px-3 py-2 border border-[#E5E5E5] rounded-lg focus:border-[#FF6A00] focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block font-semibold text-[#444444] mb-1">Bank name</label>
+                <input
+                  type="text"
+                  value={bankName}
+                  onChange={(e) => setBankName(e.target.value)}
+                  placeholder="e.g. Bank of Kigali"
+                  className="w-full px-3 py-2 border border-[#E5E5E5] rounded-lg focus:border-[#FF6A00] focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block font-semibold text-[#444444] mb-1">Bank account name</label>
+                <input
+                  type="text"
+                  value={bankAccountName}
+                  onChange={(e) => setBankAccountName(e.target.value)}
+                  placeholder="Account holder name"
+                  className="w-full px-3 py-2 border border-[#E5E5E5] rounded-lg focus:border-[#FF6A00] focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block font-semibold text-[#444444] mb-1">Bank account number</label>
+                <input
+                  type="text"
+                  value={bankAccountNumber}
+                  onChange={(e) => setBankAccountNumber(e.target.value)}
+                  placeholder="e.g. 0000000000"
                   className="w-full px-3 py-2 border border-[#E5E5E5] rounded-lg focus:border-[#FF6A00] focus:outline-none"
                 />
               </div>

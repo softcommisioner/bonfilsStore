@@ -211,6 +211,10 @@ export const AdminViews: React.FC<AdminViewsProps> = ({ onNavigate }) => {
   }>({ emails: [], deliveryConfigured: false });
   const [settingsDraft, setSettingsDraft] = useState({ usdToRwfRate: String(DEFAULT_USD_TO_RWF_RATE) });
   const [settingsUpdatedAt, setSettingsUpdatedAt] = useState('');
+  const [paymentBusinessId, setPaymentBusinessId] = useState('');
+  const [paymentDraft, setPaymentDraft] = useState({
+    momoPayCode: '', airtelMoneyCode: '', bankName: '', bankAccountName: '', bankAccountNumber: '', whatsappNumber: '',
+  });
 
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -320,6 +324,22 @@ export const AdminViews: React.FC<AdminViewsProps> = ({ onNavigate }) => {
   }, [booting, admin]);
 
   useEffect(() => {
+    if (!businesses.length) return;
+    const selected = businesses.find(business => business.id === paymentBusinessId)
+      || businesses.find(business => business.type === 'official')
+      || businesses[0];
+    setPaymentBusinessId(selected.id);
+    setPaymentDraft({
+      momoPayCode: selected.momoPayCode || '',
+      airtelMoneyCode: selected.airtelMoneyCode || '',
+      bankName: selected.bankName || '',
+      bankAccountName: selected.bankAccountName || '',
+      bankAccountNumber: selected.bankAccountNumber || '',
+      whatsappNumber: selected.whatsappNumber || '',
+    });
+  }, [businesses, paymentBusinessId]);
+
+  useEffect(() => {
     if (!admin || tab !== 'products') return;
     const timer = setTimeout(() => { loadProducts().catch(() => undefined); }, 300);
     return () => clearTimeout(timer);
@@ -395,6 +415,24 @@ export const AdminViews: React.FC<AdminViewsProps> = ({ onNavigate }) => {
       flash('Exchange rate saved.');
     } catch (err: any) {
       reportError(err, 'Could not save the exchange rate.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const savePaymentDetails = async () => {
+    if (!paymentBusinessId) {
+      setError('Choose a store first.');
+      return;
+    }
+    setBusy(true);
+    setError('');
+    try {
+      await api.updateAdminBusiness(paymentBusinessId, paymentDraft);
+      flash('Payment details saved.');
+      await loadAll();
+    } catch (err: any) {
+      reportError(err, 'Could not save the payment details.');
     } finally {
       setBusy(false);
     }
@@ -1147,41 +1185,123 @@ export const AdminViews: React.FC<AdminViewsProps> = ({ onNavigate }) => {
         )}
 
         {tab === 'settings' && (
-          <Panel title="Currency conversion">
-            <div className="max-w-xl space-y-3">
-              <p className="text-[11px] text-[#888888] leading-relaxed">
-                Catalog prices are stored in USD. Checkout converts the final order total to RWF using this
-                store-wide rate. Sellers add their MoMo Pay and Airtel Money codes in their own dashboards.
-              </p>
-              <div>
-                <label className={labelClass}>USD to RWF exchange rate</label>
-                <div className="flex flex-col sm:flex-row gap-2">
-                  <input
-                    type="number"
-                    min="1"
-                    step="0.01"
-                    className={inputClass}
-                    value={settingsDraft.usdToRwfRate}
-                    onChange={e => setSettingsDraft({ ...settingsDraft, usdToRwfRate: e.target.value })}
-                  />
-                  <button type="button" onClick={saveSettings} disabled={busy} className={`${primaryButton} shrink-0`}>
-                    Save rate
-                  </button>
-                </div>
-              </div>
-              <div className="rounded-lg border border-[#262626] bg-[#141414] px-3 py-2 text-[11px] text-[#BBBBBB]">
-                Example: <strong className="text-white">$100</strong> ={' '}
-                <strong className="text-[#FF6A00]">
-                  {formatRwf(100, normalizeUsdToRwfRate(settingsDraft.usdToRwfRate))}
-                </strong>
-              </div>
-              {settingsUpdatedAt && (
-                <p className="text-[10px] text-[#555555]">
-                  Last updated {new Date(settingsUpdatedAt).toLocaleString()}
+          <>
+            <Panel title="Currency conversion">
+              <div className="max-w-xl space-y-3">
+                <p className="text-[11px] text-[#888888] leading-relaxed">
+                  Catalog prices are stored in USD. Checkout converts the final order total to RWF using this
+                  store-wide rate.
                 </p>
-              )}
-            </div>
-          </Panel>
+                <div>
+                  <label className={labelClass}>USD to RWF exchange rate</label>
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <input
+                      type="number"
+                      min="1"
+                      step="0.01"
+                      className={inputClass}
+                      value={settingsDraft.usdToRwfRate}
+                      onChange={e => setSettingsDraft({ ...settingsDraft, usdToRwfRate: e.target.value })}
+                    />
+                    <button type="button" onClick={saveSettings} disabled={busy} className={`${primaryButton} shrink-0`}>
+                      Save rate
+                    </button>
+                  </div>
+                </div>
+                <div className="rounded-lg border border-[#262626] bg-[#141414] px-3 py-2 text-[11px] text-[#BBBBBB]">
+                  Example: <strong className="text-white">$100</strong> ={' '}
+                  <strong className="text-[#FF6A00]">
+                    {formatRwf(100, normalizeUsdToRwfRate(settingsDraft.usdToRwfRate))}
+                  </strong>
+                </div>
+                {settingsUpdatedAt && (
+                  <p className="text-[10px] text-[#555555]">
+                    Last updated {new Date(settingsUpdatedAt).toLocaleString()}
+                  </p>
+                )}
+              </div>
+            </Panel>
+
+            <Panel title="Payment collection details">
+              <div className="max-w-xl space-y-3">
+                <p className="text-[11px] text-[#888888] leading-relaxed">
+                  Choose a store to configure the MoMo Pay, Airtel, and bank details buyers see at checkout.
+                  Seeded values are clearly marked DEMO placeholders — replace them before going live.
+                </p>
+                <div>
+                  <label className={labelClass}>Store</label>
+                  <select
+                    className={inputClass}
+                    value={paymentBusinessId}
+                    onChange={e => setPaymentBusinessId(e.target.value)}
+                  >
+                    {businesses.map(business => (
+                      <option key={business.id} value={business.id}>{business.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <div>
+                    <label className={labelClass}>MoMo Pay code</label>
+                    <input
+                      className={inputClass}
+                      value={paymentDraft.momoPayCode}
+                      onChange={e => setPaymentDraft({ ...paymentDraft, momoPayCode: e.target.value })}
+                      placeholder="DEMO MoMo *182*8*1*0000001#"
+                    />
+                  </div>
+                  <div>
+                    <label className={labelClass}>Airtel Money USSD / code</label>
+                    <input
+                      className={inputClass}
+                      value={paymentDraft.airtelMoneyCode}
+                      onChange={e => setPaymentDraft({ ...paymentDraft, airtelMoneyCode: e.target.value })}
+                      placeholder="DEMO Airtel *150*00*0000002#"
+                    />
+                  </div>
+                  <div>
+                    <label className={labelClass}>Bank name</label>
+                    <input
+                      className={inputClass}
+                      value={paymentDraft.bankName}
+                      onChange={e => setPaymentDraft({ ...paymentDraft, bankName: e.target.value })}
+                      placeholder="Demo Bank Rwanda"
+                    />
+                  </div>
+                  <div>
+                    <label className={labelClass}>Bank account name</label>
+                    <input
+                      className={inputClass}
+                      value={paymentDraft.bankAccountName}
+                      onChange={e => setPaymentDraft({ ...paymentDraft, bankAccountName: e.target.value })}
+                      placeholder="DEMO account holder"
+                    />
+                  </div>
+                  <div>
+                    <label className={labelClass}>Bank account number</label>
+                    <input
+                      className={inputClass}
+                      value={paymentDraft.bankAccountNumber}
+                      onChange={e => setPaymentDraft({ ...paymentDraft, bankAccountNumber: e.target.value })}
+                      placeholder="0000000001"
+                    />
+                  </div>
+                  <div>
+                    <label className={labelClass}>WhatsApp number (optional)</label>
+                    <input
+                      className={inputClass}
+                      value={paymentDraft.whatsappNumber}
+                      onChange={e => setPaymentDraft({ ...paymentDraft, whatsappNumber: e.target.value })}
+                      placeholder="+250 788 000 000"
+                    />
+                  </div>
+                </div>
+                <button type="button" onClick={savePaymentDetails} disabled={busy} className={primaryButton}>
+                  Save payment details
+                </button>
+              </div>
+            </Panel>
+          </>
         )}
       </main>
 

@@ -12,6 +12,14 @@ interface MultiSellerCartDrawerProps {
   onNavigate: (route: string) => void;
 }
 
+function bankSummary(payment: SellerPaymentInfo): string {
+  return [
+    payment.bankName,
+    payment.bankAccountName,
+    payment.bankAccountNumber ? `A/C ${payment.bankAccountNumber}` : '',
+  ].filter(Boolean).join(' · ');
+}
+
 export const MultiSellerCartDrawer: React.FC<MultiSellerCartDrawerProps> = ({ onNavigate }) => {
   const { 
     isCartOpen, setIsCartOpen, items, updateQuantity, 
@@ -30,7 +38,7 @@ export const MultiSellerCartDrawer: React.FC<MultiSellerCartDrawerProps> = ({ on
   const [phone, setPhone] = useState(user?.phone || '');
   const [city, setCity] = useState(user?.city || 'Kigali');
   const [street, setStreet] = useState('KG 9 Ave, Nyarutarama');
-  const [paymentMethod, setPaymentMethod] = useState<'mobile_money' | 'card' | 'cash_on_delivery'>('mobile_money');
+  const [paymentMethod, setPaymentMethod] = useState<'momo_pay' | 'airtel_money' | 'bank_transfer'>('momo_pay');
   const [errorMessage, setErrorMessage] = useState('');
 
   const sellerKey = groupedBySeller.map(group => group.businessId).join('|');
@@ -60,6 +68,9 @@ export const MultiSellerCartDrawer: React.FC<MultiSellerCartDrawerProps> = ({ on
           sellerName: business.name || fallbackName,
           momoPayCode: business.momoPayCode || '',
           airtelMoneyCode: business.airtelMoneyCode || '',
+          bankName: business.bankName || '',
+          bankAccountName: business.bankAccountName || '',
+          bankAccountNumber: business.bankAccountNumber || '',
           whatsappNumber: business.whatsappNumber || business.phone || '',
         };
       } catch {
@@ -68,6 +79,9 @@ export const MultiSellerCartDrawer: React.FC<MultiSellerCartDrawerProps> = ({ on
           sellerName: fallbackName,
           momoPayCode: '',
           airtelMoneyCode: '',
+          bankName: '',
+          bankAccountName: '',
+          bankAccountNumber: '',
           whatsappNumber: '',
         };
       }
@@ -195,13 +209,11 @@ export const MultiSellerCartDrawer: React.FC<MultiSellerCartDrawerProps> = ({ on
                   return (
                     <div key={payment.businessId} className="border-t border-[#FF6A00]/20 pt-2">
                       <div className="font-semibold text-[#222222]">{payment.sellerName}</div>
-                      {(payment.momoPayCode || payment.airtelMoneyCode) && (
-                        <div>
-                          {payment.momoPayCode && <span>MTN MoMo Pay: {payment.momoPayCode}</span>}
-                          {payment.momoPayCode && payment.airtelMoneyCode && <span> · </span>}
-                          {payment.airtelMoneyCode && <span>Airtel Money: {payment.airtelMoneyCode}</span>}
-                        </div>
-                      )}
+                      <div className="mt-1 space-y-0.5">
+                        <div>Mobile Money (MoMo Pay): {payment.momoPayCode || 'Not set'}</div>
+                        <div>Airtel Money USSD / code: {payment.airtelMoneyCode || 'Not set'}</div>
+                        <div>Bank Account: {bankSummary(payment) || 'Not set'}</div>
+                      </div>
                       {payment.whatsappNumber && (
                         <div className="mt-1 flex flex-wrap items-center gap-2">
                           <span>WhatsApp: {payment.whatsappNumber}</span>
@@ -307,47 +319,60 @@ export const MultiSellerCartDrawer: React.FC<MultiSellerCartDrawerProps> = ({ on
               <div>
                 <h4 className="text-xs font-bold text-[#222222] uppercase tracking-wide mb-2">Payment Method</h4>
                 <div className="space-y-1.5">
-                  <label className={`flex items-center justify-between p-2.5 border rounded-lg cursor-pointer text-xs ${paymentMethod === 'mobile_money' ? 'border-[#FF6A00] bg-[#FFF3E8]' : 'border-[#E5E5E5]'}`}>
+                  <label className={`flex items-center justify-between p-2.5 border rounded-lg cursor-pointer text-xs ${paymentMethod === 'momo_pay' ? 'border-[#FF6A00] bg-[#FFF3E8]' : 'border-[#E5E5E5]'}`}>
                     <div className="flex items-center gap-2">
                       <input
                         type="radio"
                         name="payment"
-                        checked={paymentMethod === 'mobile_money'}
-                        onChange={() => setPaymentMethod('mobile_money')}
+                        checked={paymentMethod === 'momo_pay'}
+                        onChange={() => setPaymentMethod('momo_pay')}
                         className="text-[#FF6A00] focus:ring-[#FF6A00]"
                       />
-                      <span className="font-semibold text-[#222222]">MTN MoMo / Airtel Money</span>
+                      <span className="font-semibold text-[#222222]">Mobile Money (MoMo Pay code)</span>
                     </div>
-                    <span className="text-[10px] text-[#666666]">Instant</span>
+                    <span className="text-[10px] text-[#666666]">USSD / pay code</span>
                   </label>
 
-                  <label className={`flex items-center justify-between p-2.5 border rounded-lg cursor-pointer text-xs ${paymentMethod === 'card' ? 'border-[#FF6A00] bg-[#FFF3E8]' : 'border-[#E5E5E5]'}`}>
+                  <label className={`flex items-center justify-between p-2.5 border rounded-lg cursor-pointer text-xs ${paymentMethod === 'airtel_money' ? 'border-[#FF6A00] bg-[#FFF3E8]' : 'border-[#E5E5E5]'}`}>
                     <div className="flex items-center gap-2">
                       <input
                         type="radio"
                         name="payment"
-                        checked={paymentMethod === 'card'}
-                        onChange={() => setPaymentMethod('card')}
+                        checked={paymentMethod === 'airtel_money'}
+                        onChange={() => setPaymentMethod('airtel_money')}
                         className="text-[#FF6A00] focus:ring-[#FF6A00]"
                       />
-                      <span className="font-semibold text-[#222222]">Visa / Mastercard</span>
+                      <span className="font-semibold text-[#222222]">Airtel Money USSD / code</span>
                     </div>
-                    <span className="text-[10px] text-[#666666]">Credit/Debit</span>
+                    <span className="text-[10px] text-[#666666]">USSD / pay code</span>
                   </label>
 
-                  <label className={`flex items-center justify-between p-2.5 border rounded-lg cursor-pointer text-xs ${paymentMethod === 'cash_on_delivery' ? 'border-[#FF6A00] bg-[#FFF3E8]' : 'border-[#E5E5E5]'}`}>
+                  <label className={`flex items-center justify-between p-2.5 border rounded-lg cursor-pointer text-xs ${paymentMethod === 'bank_transfer' ? 'border-[#FF6A00] bg-[#FFF3E8]' : 'border-[#E5E5E5]'}`}>
                     <div className="flex items-center gap-2">
                       <input
                         type="radio"
                         name="payment"
-                        checked={paymentMethod === 'cash_on_delivery'}
-                        onChange={() => setPaymentMethod('cash_on_delivery')}
+                        checked={paymentMethod === 'bank_transfer'}
+                        onChange={() => setPaymentMethod('bank_transfer')}
                         className="text-[#FF6A00] focus:ring-[#FF6A00]"
                       />
-                      <span className="font-semibold text-[#222222]">Cash on Delivery</span>
+                      <span className="font-semibold text-[#222222]">Bank Account number / details</span>
                     </div>
-                    <span className="text-[10px] text-[#666666]">Pay on arrival</span>
+                    <span className="text-[10px] text-[#666666]">Bank transfer</span>
                   </label>
+                </div>
+
+                <div className="mt-2 space-y-2">
+                  {sellerPayments.length > 0 ? sellerPayments.map(payment => (
+                    <div key={payment.businessId} className="rounded-lg border border-[#E5E5E5] bg-[#FAFAFA] p-2.5 text-[11px] text-[#555555]">
+                      <div className="font-bold text-[#222222]">{payment.sellerName}</div>
+                      <div className="mt-1">Mobile Money (MoMo Pay): <strong className="text-[#222222]">{payment.momoPayCode || 'Not set'}</strong></div>
+                      <div>Airtel Money USSD / code: <strong className="text-[#222222]">{payment.airtelMoneyCode || 'Not set'}</strong></div>
+                      <div>Bank Account: <strong className="text-[#222222]">{bankSummary(payment) || 'Not set'}</strong></div>
+                    </div>
+                  )) : (
+                    <p className="text-[11px] text-[#888888]">Payment details are not available yet — contact support before paying.</p>
+                  )}
                 </div>
               </div>
 
@@ -363,23 +388,6 @@ export const MultiSellerCartDrawer: React.FC<MultiSellerCartDrawerProps> = ({ on
                   <span className="text-[#555555]">You will pay</span>
                   <span className="font-bold text-[#FF6A00] tabular-nums">{formatRwf(total, usdToRwfRate)}</span>
                 </div>
-
-                {paymentMethod === 'mobile_money' && sellerPayments.length > 0 && (
-                  <div className="border-t border-[#FF6A00]/20 pt-2 space-y-1.5">
-                    <div className="font-bold text-[#222222]">Pay each seller directly</div>
-                    {sellerPayments.map(payment => (
-                      <div key={payment.businessId} className="text-[11px] text-[#555555]">
-                        <span className="font-semibold text-[#222222]">{payment.sellerName}:</span>{' '}
-                        {payment.momoPayCode ? `MTN MoMo Pay ${payment.momoPayCode}` : ''}
-                        {payment.momoPayCode && payment.airtelMoneyCode ? ' · ' : ''}
-                        {payment.airtelMoneyCode ? `Airtel Money ${payment.airtelMoneyCode}` : ''}
-                        {!payment.momoPayCode && !payment.airtelMoneyCode
-                          ? 'No code added yet — contact the seller on WhatsApp.'
-                          : ''}
-                      </div>
-                    ))}
-                  </div>
-                )}
               </div>
 
               {/* Multi-Seller Package Summary */}

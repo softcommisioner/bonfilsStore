@@ -324,7 +324,10 @@ router.get('/businesses', requireAdmin, asyncHandler(async (_req, res) => {
 
 router.put('/businesses/:id', requireAdmin, asyncHandler(async (req, res) => {
   const patch: Record<string, unknown> = {};
-  for (const field of ['name', 'description', 'phone', 'email', 'city', 'country', 'shippingTerms', 'status'] as const) {
+  for (const field of [
+    'name', 'description', 'phone', 'email', 'city', 'country', 'shippingTerms', 'status',
+    'momoPayCode', 'airtelMoneyCode', 'bankName', 'bankAccountName', 'bankAccountNumber', 'whatsappNumber',
+  ] as const) {
     if (req.body?.[field] !== undefined) patch[field] = String(req.body[field]);
   }
   if (req.body?.isVerified !== undefined) patch.isVerified = Boolean(req.body.isVerified);

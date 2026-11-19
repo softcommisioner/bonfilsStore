@@ -13,6 +13,36 @@ function log(message: string) {
   console.log(`[seed] ${message}`);
 }
 
+const DEMO_PAYMENT_SANITIZATION_COUNTER = 'demo-payment-details-sanitized-v1';
+
+const DEMO_PAYMENT_NAME_MATCHERS: Record<string, string[]> = {
+  'BIZ-001': ['bonfils'],
+  'BIZ-002': ['rukundo'],
+  'BIZ-003': ['kevin'],
+  'BIZ-004': ['abc imports'],
+};
+
+async function sanitizeDemoPaymentDetails(store: Store): Promise<void> {
+  const run = await store.nextCounter(DEMO_PAYMENT_SANITIZATION_COUNTER, 1);
+  if (run !== 1) return;
+  let sanitized = 0;
+  for (const business of await store.listBusinesses()) {
+    const name = business.name.toLowerCase();
+    const seed = seedBusinesses.find(candidate => candidate.id === business.id
+      || DEMO_PAYMENT_NAME_MATCHERS[candidate.id]?.some(term => name.includes(term)));
+    if (!seed) continue;
+    await store.updateBusiness(business.id, {
+      momoPayCode: seed.momoPayCode || '',
+      airtelMoneyCode: seed.airtelMoneyCode || '',
+      bankName: seed.bankName || '',
+      bankAccountName: seed.bankAccountName || '',
+      bankAccountNumber: seed.bankAccountNumber || '',
+    });
+    sanitized += 1;
+  }
+  log(`demo payment details replaced with safe placeholders for ${sanitized} store(s)`);
+}
+
 /**
  * Collapses the legacy 18-category catalogue into the approved 12. Runs before
  * `seedCategoriesIfMissing` so the canonical rows already exist by name and the
@@ -169,14 +199,27 @@ async function seedCategoriesIfMissing(store: Store) {
 
 async function seedBusinessesIfMissing(store: Store) {
   let created = 0;
+  let paymentDetailsAdded = 0;
+  const paymentFields = [
+    'momoPayCode', 'airtelMoneyCode', 'bankName', 'bankAccountName', 'bankAccountNumber',
+  ] as const;
   for (const business of seedBusinesses) {
     const existing = await store.findBusiness(business.id);
     if (!existing) {
       await store.createBusiness(business);
       created += 1;
+      continue;
+    }
+    const patch: Record<string, unknown> = {};
+    for (const field of paymentFields) {
+      if (!existing[field] && business[field]) patch[field] = business[field];
+    }
+    if (Object.keys(patch).length) {
+      await store.updateBusiness(business.id, patch as never);
+      paymentDetailsAdded += 1;
     }
   }
-  log(`businesses ready (${created} created, ${seedBusinesses.length} total)`);
+  log(`businesses ready (${created} created, ${paymentDetailsAdded} received demo payment details, ${seedBusinesses.length} total)`);
 }
 
 async function seedDemoUsersIfMissing(store: Store) {
@@ -243,6 +286,7 @@ export async function runSeed(store: Store = getStore()): Promise<void> {
   await migrateCategoryStructure(store);
   await seedCategoriesIfMissing(store);
   await seedBusinessesIfMissing(store);
+  await sanitizeDemoPaymentDetails(store);
   await seedDemoUsersIfMissing(store);
   await seedProductsIfMissing(store);
   await ensureSuperAdmin(store);

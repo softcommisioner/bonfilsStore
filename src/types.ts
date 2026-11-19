@@ -34,6 +34,9 @@ export interface Business {
   shippingTerms: string;
   momoPayCode?: string;
   airtelMoneyCode?: string;
+  bankName?: string;
+  bankAccountName?: string;
+  bankAccountNumber?: string;
   whatsappNumber?: string;
   createdAt: string;
 }
@@ -76,6 +79,9 @@ export interface SellerPaymentInfo {
   sellerName: string;
   momoPayCode: string;
   airtelMoneyCode: string;
+  bankName: string;
+  bankAccountName: string;
+  bankAccountNumber: string;
   whatsappNumber: string;
 }
 
@@ -175,7 +181,7 @@ export interface Order {
     country: string;
     notes?: string;
   };
-  paymentMethod: 'card' | 'mobile_money' | 'bank_transfer' | 'cash_on_delivery';
+  paymentMethod: 'card' | 'momo_pay' | 'airtel_money' | 'mobile_money' | 'bank_transfer' | 'cash_on_delivery';
   paymentStatus: 'paid' | 'pending';
   currency?: 'USD' | 'RWF';
   usdToRwfRate?: number;

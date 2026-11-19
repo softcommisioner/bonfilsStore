@@ -63,6 +63,9 @@ function mapBusiness(row: Row): Business {
     shippingTerms: row.shipping_terms,
     momoPayCode: row.momo_pay_code || undefined,
     airtelMoneyCode: row.airtel_money_code || undefined,
+    bankName: row.bank_name || undefined,
+    bankAccountName: row.bank_account_name || undefined,
+    bankAccountNumber: row.bank_account_number || undefined,
     whatsappNumber: row.whatsapp_number || undefined,
     createdAt: ts(row.created_at),
   };
@@ -401,14 +404,15 @@ export class PostgresStore implements Store {
 
   async createBusiness(business: Business): Promise<Business> {
     const rows = await this.query(
-      `INSERT INTO businesses (id, owner_id, name, type, description, phone, email, country, city, rating, reviews_count, total_products, total_sales, is_verified, status, shipping_terms, momo_pay_code, airtel_money_code, whatsapp_number, created_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20) RETURNING *`,
+      `INSERT INTO businesses (id, owner_id, name, type, description, phone, email, country, city, rating, reviews_count, total_products, total_sales, is_verified, status, shipping_terms, momo_pay_code, airtel_money_code, bank_name, bank_account_name, bank_account_number, whatsapp_number, created_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23) RETURNING *`,
       [
         business.id, business.ownerId || null, business.name, business.type, business.description,
         business.phone, business.email, business.country, business.city, business.rating,
         business.reviewsCount, business.totalProducts, business.totalSales, business.isVerified,
         business.status, business.shippingTerms, business.momoPayCode || null,
-        business.airtelMoneyCode || null, business.whatsappNumber || null, business.createdAt,
+        business.airtelMoneyCode || null, business.bankName || null, business.bankAccountName || null,
+        business.bankAccountNumber || null, business.whatsappNumber || null, business.createdAt,
       ],
     );
     return mapBusiness(rows[0]);
@@ -420,7 +424,9 @@ export class PostgresStore implements Store {
       email: 'email', country: 'country', city: 'city', rating: 'rating', reviewsCount: 'reviews_count',
       totalProducts: 'total_products', totalSales: 'total_sales', isVerified: 'is_verified',
       status: 'status', shippingTerms: 'shipping_terms', momoPayCode: 'momo_pay_code',
-      airtelMoneyCode: 'airtel_money_code', whatsappNumber: 'whatsapp_number',
+      airtelMoneyCode: 'airtel_money_code', bankName: 'bank_name',
+      bankAccountName: 'bank_account_name', bankAccountNumber: 'bank_account_number',
+      whatsappNumber: 'whatsapp_number',
     };
     const sets: string[] = [];
     const values: any[] = [];

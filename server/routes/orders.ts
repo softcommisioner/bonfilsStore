@@ -88,6 +88,9 @@ router.post('/', requireAuth, asyncHandler(async (req, res) => {
       sellerName: business?.name || itemSellerName || 'Seller',
       momoPayCode: business?.momoPayCode || '',
       airtelMoneyCode: business?.airtelMoneyCode || '',
+      bankName: business?.bankName || '',
+      bankAccountName: business?.bankAccountName || '',
+      bankAccountNumber: business?.bankAccountNumber || '',
       whatsappNumber: business?.whatsappNumber || business?.phone || '',
     });
   }
@@ -114,7 +117,7 @@ router.post('/', requireAuth, asyncHandler(async (req, res) => {
       country: String(address.country),
       notes: address.notes ? String(address.notes) : undefined,
     },
-    paymentMethod: ['card', 'mobile_money', 'bank_transfer', 'cash_on_delivery'].includes(payload.paymentMethod)
+    paymentMethod: ['card', 'momo_pay', 'airtel_money', 'mobile_money', 'bank_transfer', 'cash_on_delivery'].includes(payload.paymentMethod)
       ? payload.paymentMethod
       : 'mobile_money',
     paymentStatus: payload.paymentMethod === 'card' ? 'paid' : 'pending',

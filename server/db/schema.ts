@@ -61,11 +61,17 @@ CREATE TABLE IF NOT EXISTS businesses (
   shipping_terms TEXT NOT NULL DEFAULT '',
   momo_pay_code  TEXT,
   airtel_money_code TEXT,
+  bank_name TEXT,
+  bank_account_name TEXT,
+  bank_account_number TEXT,
   whatsapp_number TEXT,
   created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 ALTER TABLE businesses ADD COLUMN IF NOT EXISTS momo_pay_code TEXT;
 ALTER TABLE businesses ADD COLUMN IF NOT EXISTS airtel_money_code TEXT;
+ALTER TABLE businesses ADD COLUMN IF NOT EXISTS bank_name TEXT;
+ALTER TABLE businesses ADD COLUMN IF NOT EXISTS bank_account_name TEXT;
+ALTER TABLE businesses ADD COLUMN IF NOT EXISTS bank_account_number TEXT;
 ALTER TABLE businesses ADD COLUMN IF NOT EXISTS whatsapp_number TEXT;
 
 CREATE TABLE IF NOT EXISTS app_settings (
