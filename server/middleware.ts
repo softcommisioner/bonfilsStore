@@ -3,7 +3,7 @@ import { config } from './config.js';
 import { getStore } from './db/index.js';
 import type { Store, UserRecord } from './db/index.js';
 import type { AdminActivityLog, NotificationItem } from '../src/types.js';
-import { createSession, newId } from './security.js';
+import { createSession, newId, readSessionToken } from './security.js';
 
 declare global {
   // eslint-disable-next-line @typescript-eslint/no-namespace
@@ -45,7 +45,20 @@ export async function authenticateToken(req: Request, res: Response, next: NextF
     }
     const store = getStore();
     let session = await store.getSession(token);
-    const user = session ? await store.findUserById(session.userId) : null;
+    const claims = session ? null : readSessionToken(token);
+    if (!session && claims) {
+      session = {
+        token,
+        userId: claims.userId,
+        audience: claims.audience,
+        createdAt: claims.issuedAt,
+        expiresAt: claims.expiresAt,
+      };
+    }
+    let user = session ? await store.findUserById(session.userId) : null;
+    if (!user && claims?.email) {
+      user = await store.findUserByEmail(claims.email);
+    }
 
     if (!session || !user) {
       // A stale token in localStorage must not break public browsing. Treat it

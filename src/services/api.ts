@@ -127,6 +127,10 @@ export const api = {
         }
       }
       if (response.status === 401 || response.status === 403) {
+        if (response.status === 401) {
+          if (tokenType === 'admin') this.clearAdminToken();
+          else this.clearToken();
+        }
         const fallback = response.status === 401
           ? 'Please sign in to continue.'
           : 'You do not have permission to perform this action.';

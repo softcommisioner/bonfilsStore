@@ -233,9 +233,12 @@ export const AdminViews: React.FC<AdminViewsProps> = ({ onNavigate }) => {
   }, []);
 
   const reportError = useCallback((err: any, fallback: string) => {
-    if (err?.status === 401) {
-      setNeedsReauth(true);
-      setError(err.message || 'Please sign in to continue.');
+    if (err?.status === 401 || err?.status === 403) {
+      api.clearAdminToken();
+      api.clearAdminProfile();
+      setAdmin(null);
+      setNeedsReauth(false);
+      setError(err.message || 'Please sign in through the Super Admin console to continue.');
       return;
     }
     setError(err.message || fallback);
@@ -307,10 +310,15 @@ export const AdminViews: React.FC<AdminViewsProps> = ({ onNavigate }) => {
         const session = await api.getAdminSession();
         if (!cancelled) setAdmin(session.user);
       } catch (err: any) {
-        if (!cancelled && err?.status === 401) {
-          api.clearAllLocalAuth();
-          setAdmin(null);
-          setNeedsReauth(false);
+        if (!cancelled) {
+          if (err?.status === 401 || err?.status === 403) {
+            api.clearAllLocalAuth();
+            setAdmin(null);
+            setNeedsReauth(false);
+          } else {
+            // Keep cached admin/profile visible; data loads will report availability issues.
+            setError(err.message || 'Unable to verify the administrator session right now.');
+          }
         }
       } finally {
         if (!cancelled) setBooting(false);
