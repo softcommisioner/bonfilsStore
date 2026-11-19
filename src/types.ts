@@ -45,7 +45,7 @@ export interface Product {
   category: string;
   brand: string;
   price: number;
-  originalPrice?: number;
+  originalPrice?: number | null;
   stock: number;
   images: string[];
   rating: number;

@@ -348,10 +348,7 @@ router.post('/products', requireAdmin, asyncHandler(async (req, res) => {
     return res.status(400).json({ error: 'Select an existing store for this product.' });
   }
 
-  const categoryName = String(req.body?.category || '').trim();
-  if (categoryName && !(await store.findCategoryByName(categoryName))) {
-    return res.status(400).json({ error: 'Choose an existing category (create it first under Categories).' });
-  }
+  const categoryName = await resolveCategoryName(req.body?.category);
 
   const now = new Date().toISOString();
   const product: Product = {
@@ -361,7 +358,7 @@ router.post('/products', requireAdmin, asyncHandler(async (req, res) => {
     isOfficial: business.type === 'official',
     title,
     description: String(req.body?.description || '').trim(),
-    category: categoryName || await resolveCategoryName(''),
+    category: categoryName,
     brand: String(req.body?.brand || '').trim(),
     price,
     originalPrice: req.body?.originalPrice ? toNumber(req.body.originalPrice, price) : undefined,
@@ -405,8 +402,8 @@ router.put('/products/:id', requireAdmin, asyncHandler(async (req, res) => {
   for (const field of fields) {
     if (req.body?.[field] !== undefined) (patch as any)[field] = String(req.body[field]);
   }
-  if (patch.category && !(await store.findCategoryByName(patch.category))) {
-    return res.status(400).json({ error: 'Choose an existing category (create it first under Categories).' });
+  if (patch.category) {
+    patch.category = await resolveCategoryName(patch.category);
   }
   if (req.body?.price !== undefined) {
     const price = toNumber(req.body.price, 0);
@@ -415,7 +412,7 @@ router.put('/products/:id', requireAdmin, asyncHandler(async (req, res) => {
   }
   if (req.body?.originalPrice !== undefined) {
     patch.originalPrice = req.body.originalPrice === null || req.body.originalPrice === ''
-      ? undefined
+      ? null
       : toNumber(req.body.originalPrice, existing.price);
   }
   if (req.body?.stock !== undefined) patch.stock = Math.max(0, Math.floor(toNumber(req.body.stock, 0)));

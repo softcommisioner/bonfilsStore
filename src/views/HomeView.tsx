@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   PlaneTakeoff, ArrowRight, Store, Star, CheckCircle, Flame, Sparkles, Tag, ChevronRight
 } from 'lucide-react';
@@ -75,32 +75,35 @@ export const HomeView: React.FC<HomeViewProps> = ({ onNavigate, onSelectCategory
   const [sellers, setSellers] = useState<Business[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [featuredData, latestData, categoryData, sellerData] = await Promise.all([
-          api.getProducts({ featured: 'true', pageSize: '8', sort: 'popular' }),
-          api.getProducts({ pageSize: '8', sort: 'newest' }),
-          api.getCategories(),
-          api.getSellers(),
-        ]);
-        setFeatured(featuredData.products || []);
-        setLatest(latestData.products || []);
-        setCategories(categoryData || []);
-        setSellers(sellerData || []);
-        setDeals(
-          (latestData.products || [])
-            .filter(product => product.originalPrice && product.originalPrice > product.price)
-            .slice(0, 8),
-        );
-      } catch (error) {
-        console.error('Error loading homepage data', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    fetchData();
+  const fetchData = useCallback(async () => {
+    try {
+      const [featuredData, latestData, categoryData, sellerData] = await Promise.all([
+        api.getProducts({ featured: 'true', pageSize: '8', sort: 'popular' }),
+        api.getProducts({ pageSize: '8', sort: 'newest' }),
+        api.getCategories(),
+        api.getSellers(),
+      ]);
+      setFeatured(featuredData.products || []);
+      setLatest(latestData.products || []);
+      setCategories(categoryData || []);
+      setSellers(sellerData || []);
+      setDeals(
+        (latestData.products || [])
+          .filter(product => product.originalPrice && product.originalPrice > product.price)
+          .slice(0, 8),
+      );
+    } catch (error) {
+      console.error('Error loading homepage data', error);
+    } finally {
+      setIsLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    fetchData();
+    window.addEventListener('focus', fetchData);
+    return () => window.removeEventListener('focus', fetchData);
+  }, [fetchData]);
 
   return (
     <div className="min-h-screen bg-[#F7F7F7] pb-16">

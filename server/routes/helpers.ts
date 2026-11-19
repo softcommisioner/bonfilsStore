@@ -1,6 +1,7 @@
 import type { NextFunction, Request, RequestHandler, Response } from 'express';
 import { getStore } from '../db/index.js';
 import type { UserRecord } from '../db/index.js';
+import { CATEGORY_RENAMES } from '../seed/catalog.js';
 
 export function asyncHandler(handler: (req: Request, res: Response, next: NextFunction) => Promise<unknown>): RequestHandler {
   return (req, res, next) => {
@@ -34,15 +35,24 @@ export function toNumber(value: unknown, fallback: number): number {
 export async function resolveCategoryName(value: unknown): Promise<string> {
   const store = getStore();
   const categories = await store.listCategories(false);
+  const fallback = categories[0]?.name || 'Other';
   const requested = typeof value === 'string' ? value.trim() : '';
-  if (requested) {
-    const match = categories.find(category => category.name.toLowerCase() === requested.toLowerCase());
-    if (!match) {
-      throw Object.assign(new Error(`"${requested}" is not an active category.`), { status: 400 });
-    }
-    return match.name;
+  if (!requested) return fallback;
+
+  const match = categories.find(category => (
+    category.name.toLowerCase() === requested.toLowerCase()
+    || category.slug?.toLowerCase() === requested.toLowerCase()
+  ));
+  if (match) return match.name;
+
+  // Legacy and retired names are mapped into the active 12-category catalogue
+  // so a product can never be saved under a category the storefront hides.
+  for (const [legacy, canonical] of Object.entries(CATEGORY_RENAMES)) {
+    if (legacy.toLowerCase() !== requested.toLowerCase()) continue;
+    const target = categories.find(category => category.name.toLowerCase() === canonical.toLowerCase());
+    if (target) return target.name;
   }
-  return categories[0]?.name || 'Other';
+  return fallback;
 }
 
 export function publicUser(user: UserRecord) {

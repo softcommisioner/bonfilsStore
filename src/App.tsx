@@ -57,7 +57,6 @@ function MainRouter() {
   });
 
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeCategory, setActiveCategory] = useState('');
 
   const navigate = (route: string) => {
     setCurrentRoute(route);
@@ -91,7 +90,6 @@ function MainRouter() {
   };
 
   const handleSelectCategory = (cat: string) => {
-    setActiveCategory(cat);
     navigate(`/products?category=${encodeURIComponent(cat)}`);
   };
 
@@ -143,8 +141,8 @@ function MainRouter() {
         {basePath === '/products' && (
           <ProductsView
             onNavigate={navigate}
-            initialCategory={categoryParam || activeCategory}
-            initialSearch={searchParam || searchQuery}
+            initialCategory={categoryParam}
+            initialSearch={searchParam}
             initialSort={sortParam}
             initialFeatured={featuredParam}
           />

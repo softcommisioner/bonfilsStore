@@ -31,9 +31,11 @@ async function productFromPayload(body: Record<string, unknown>, existing?: Prod
     category: await resolveCategoryName(body.category ?? existing?.category),
     brand: String(body.brand ?? existing?.brand ?? '').trim(),
     price,
-    originalPrice: body.originalPrice !== undefined && body.originalPrice !== null && body.originalPrice !== ''
-      ? toNumber(body.originalPrice, price)
-      : existing?.originalPrice,
+    originalPrice: body.originalPrice !== undefined
+      ? (body.originalPrice === null || body.originalPrice === ''
+        ? null
+        : toNumber(body.originalPrice, price))
+      : (existing?.originalPrice ?? null),
     stock: Math.max(0, Math.floor(toNumber(body.stock, existing?.stock ?? 0))),
     images: Array.isArray(body.images)
       ? body.images.filter((image): image is string => typeof image === 'string' && image.length > 0).slice(0, 8)
@@ -44,7 +46,7 @@ async function productFromPayload(body: Record<string, unknown>, existing?: Prod
       ? body.specifications
       : existing?.specifications) as Product['specifications'],
     isFeatured: existing?.isFeatured ?? false,
-    isActive: body.isActive === undefined ? (existing?.isActive ?? true) : Boolean(body.isActive),
+    isActive: body.isActive === undefined ? true : Boolean(body.isActive),
   };
 }
 

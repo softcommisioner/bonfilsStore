@@ -123,12 +123,17 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
       }
     };
     fetchMetadata();
+    window.addEventListener('focus', fetchMetadata);
+    return () => window.removeEventListener('focus', fetchMetadata);
   }, []);
 
   useEffect(() => {
     fetchProducts(1);
     window.scrollTo({ top: 0, behavior: 'smooth' });
-  }, [search, selectedCategory, selectedSeller, sortBy, minPrice, maxPrice, featuredOnly]);
+    const handleFocus = () => { void fetchProducts(1); };
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
+  }, [fetchProducts]);
 
   const handleResetFilters = () => {
     setSelectedCategory('');
