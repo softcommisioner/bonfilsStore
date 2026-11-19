@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import {
   normalizeAppSettings, normalizeEstimatedDeliveryDays, normalizeFulfillmentStatus,
-  type AppSettings, type Business, type Product, type Order, type ChinaRequest, type ShippingOrder, type Category,
+  type AppSettings, type Business, type Product, type Order, type OrderItem, type ChinaRequest, type ShippingOrder, type Category,
   type AdminActivityLog, type EmailRecord, type NotificationItem
 } from '../../src/types.js';
 import {
@@ -97,7 +97,7 @@ export class MemoryStore implements Store {
         };
         console.log(`[store] memory store restored from ${this.snapshotPath}`);
       } catch (error) {
-        console.warn('[store] failed to restore snapshot, starting empty:', (error as Error).message);
+        throw new Error(`Could not restore the local data snapshot: ${(error as Error).message}`);
       }
     }
   }
@@ -123,15 +123,11 @@ export class MemoryStore implements Store {
    */
   private writeSnapshot(): void {
     if (!this.snapshotPath) return;
-    try {
-      fs.mkdirSync(path.dirname(this.snapshotPath), { recursive: true });
-      fs.writeFileSync(
-        this.snapshotPath,
-        JSON.stringify({ ...this.tables, media: Array.from(this.tables.media.values()) }),
-      );
-    } catch (error) {
-      console.warn('[store] snapshot write failed:', (error as Error).message);
-    }
+    const directory = path.dirname(this.snapshotPath);
+    const temporary = `${this.snapshotPath}.${process.pid}.tmp`;
+    fs.mkdirSync(directory, { recursive: true });
+    fs.writeFileSync(temporary, JSON.stringify({ ...this.tables, media: Array.from(this.tables.media.values()) }));
+    fs.renameSync(temporary, this.snapshotPath);
   }
 
   async findUserByEmail(email: string): Promise<UserRecord | null> {
@@ -179,6 +175,7 @@ export class MemoryStore implements Store {
     if (!session) return null;
     if (session.expiresAt < Date.now()) {
       this.tables.sessions = this.tables.sessions.filter(s => s.token !== token);
+      this.flush();
       return null;
     }
     return session;
@@ -410,6 +407,27 @@ export class MemoryStore implements Store {
     this.tables.orders[index] = { ...this.tables.orders[index], ...patch };
     this.flush();
     return clone(this.tables.orders[index]);
+  }
+
+  async updateOrderItemsForSeller(
+    orderId: string,
+    businessId: string,
+    itemStatus: OrderItem['status'],
+    trackingNumber?: string,
+  ): Promise<Order | null> {
+    const order = this.tables.orders.find(entry => entry.id === orderId);
+    if (!order) return null;
+    const items = order.items.map(item => (item.businessId === businessId
+      ? { ...item, status: itemStatus, ...(trackingNumber ? { trackingNumber } : {}) }
+      : item));
+    const allSettled = items.every(item => ['delivered', 'cancelled'].includes(item.status));
+    const anyShipped = items.some(item => ['shipped', 'delivered'].includes(item.status));
+    const status = (allSettled
+      ? (items.every(item => item.status === 'cancelled') ? 'cancelled' : 'delivered')
+      : anyShipped ? 'partially_shipped' : itemStatus === 'shipped' ? 'shipped' : 'processing') as Order['status'];
+    this.tables.orders = this.tables.orders.map(entry => (entry.id === orderId ? { ...entry, items, status } : entry));
+    this.flush();
+    return clone(this.tables.orders.find(entry => entry.id === orderId)!);
   }
 
   async placeOrder(order: Order, lines: Array<{ productId: string; quantity: number }>): Promise<Order> {

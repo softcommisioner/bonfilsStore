@@ -2,7 +2,7 @@ import { Pool, type PoolClient } from 'pg';
 import {
   normalizeAppSettings, normalizeEstimatedDeliveryDays, normalizeFulfillmentStatus,
   normalizeUsdToRwfRate,
-  type AppSettings, type Business, type Product, type Order, type ChinaRequest, type ShippingOrder, type Category,
+  type AppSettings, type Business, type Product, type Order, type OrderItem, type ChinaRequest, type ShippingOrder, type Category,
   type AdminActivityLog, type EmailRecord, type NotificationItem
 } from '../../src/types.js';
 import {
@@ -715,6 +715,32 @@ export class PostgresStore implements Store {
     return rows[0] ? mapOrder(rows[0]) : null;
   }
 
+  async updateOrderItemsForSeller(
+    orderId: string,
+    businessId: string,
+    itemStatus: OrderItem['status'],
+    trackingNumber?: string,
+  ): Promise<Order | null> {
+    return this.withTransaction(async client => {
+      const current = await client.query('SELECT * FROM orders WHERE id = $1 FOR UPDATE', [orderId]);
+      if (!current.rows[0]) return null;
+      const order = mapOrder(current.rows[0] as Row);
+      const items = order.items.map(item => (item.businessId === businessId
+        ? { ...item, status: itemStatus, ...(trackingNumber ? { trackingNumber } : {}) }
+        : item));
+      const allSettled = items.every(item => ['delivered', 'cancelled'].includes(item.status));
+      const anyShipped = items.some(item => ['shipped', 'delivered'].includes(item.status));
+      const status = (allSettled
+        ? (items.every(item => item.status === 'cancelled') ? 'cancelled' : 'delivered')
+        : anyShipped ? 'partially_shipped' : itemStatus === 'shipped' ? 'shipped' : 'processing') as Order['status'];
+      const updated = await client.query(
+        'UPDATE orders SET items = $1, status = $2, updated_at = NOW() WHERE id = $3 RETURNING *',
+        [JSON.stringify(items), status, orderId],
+      );
+      return updated.rows[0] ? mapOrder(updated.rows[0] as Row) : null;
+    });
+  }
+
   async placeOrder(order: Order, lines: Array<{ productId: string; quantity: number }>): Promise<Order> {
     return this.withTransaction(async client => {
       for (const line of lines) {
@@ -786,14 +812,17 @@ export class PostgresStore implements Store {
   }
 
   async updateChinaRequest(id: string, patch: Partial<ChinaRequest>): Promise<ChinaRequest | null> {
-    const existing = await this.findChinaRequest(id);
-    if (!existing) return null;
-    const merged = { ...existing, ...patch } as ChinaRequest;
-    const rows = await this.query(
-      `UPDATE china_requests SET status = $1, data = $2, updated_at = NOW() WHERE id = $3 RETURNING *`,
-      [merged.status, JSON.stringify(merged), id],
-    );
-    return rows[0] ? mapChinaRequest(rows[0]) : null;
+    return this.withTransaction(async client => {
+      const current = await client.query('SELECT * FROM china_requests WHERE id = $1 FOR UPDATE', [id]);
+      if (!current.rows[0]) return null;
+      const existing = mapChinaRequest(current.rows[0] as Row);
+      const merged = { ...existing, ...patch } as ChinaRequest;
+      const updated = await client.query(
+        `UPDATE china_requests SET status = $1, data = $2, updated_at = NOW() WHERE id = $3 RETURNING *`,
+        [merged.status, JSON.stringify(merged), id],
+      );
+      return updated.rows[0] ? mapChinaRequest(updated.rows[0] as Row) : null;
+    });
   }
 
   async listShippingOrders(): Promise<ShippingOrder[]> {
@@ -820,14 +849,17 @@ export class PostgresStore implements Store {
   }
 
   async updateShippingOrder(id: string, patch: Partial<ShippingOrder>): Promise<ShippingOrder | null> {
-    const existing = await this.findShippingOrder(id);
-    if (!existing) return null;
-    const merged = { ...existing, ...patch } as ShippingOrder;
-    const rows = await this.query(
-      'UPDATE shipping_orders SET status = $1, data = $2, updated_at = NOW() WHERE id = $3 RETURNING *',
-      [merged.status, JSON.stringify(merged), id],
-    );
-    return rows[0] ? mapShippingOrder(rows[0]) : null;
+    return this.withTransaction(async client => {
+      const current = await client.query('SELECT * FROM shipping_orders WHERE id = $1 FOR UPDATE', [id]);
+      if (!current.rows[0]) return null;
+      const existing = mapShippingOrder(current.rows[0] as Row);
+      const merged = { ...existing, ...patch } as ShippingOrder;
+      const updated = await client.query(
+        'UPDATE shipping_orders SET status = $1, data = $2, updated_at = NOW() WHERE id = $3 RETURNING *',
+        [merged.status, JSON.stringify(merged), id],
+      );
+      return updated.rows[0] ? mapShippingOrder(updated.rows[0] as Row) : null;
+    });
   }
 
   async clearShippingOrders(): Promise<void> {

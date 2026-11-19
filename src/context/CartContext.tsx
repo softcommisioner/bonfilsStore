@@ -1,5 +1,6 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import type { Product, CartItem } from '../types';
+import { api } from '../services/api';
 
 const MAX_PER_ITEM = 20;
 // Must stay in sync with FREE_SHIPPING_THRESHOLD in server/routes/orders.ts
@@ -45,6 +46,8 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   });
 
   const [isCartOpen, setIsCartOpen] = useState(false);
+  const itemsRef = useRef(items);
+  itemsRef.current = items;
 
   useEffect(() => {
     try {
@@ -53,6 +56,34 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.error('Failed to save cart to localStorage', e);
     }
   }, [items]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const revalidate = async () => {
+      const saved = itemsRef.current;
+      if (!saved.length) return;
+      const fresh = await Promise.all(saved.map(async item => {
+        try {
+          const { product } = await api.getProduct(item.product.id);
+          if (!product.isActive || product.stock <= 0) return null;
+          return {
+            ...item,
+            product,
+            quantity: Math.max(1, Math.min(product.stock, Math.min(MAX_PER_ITEM, item.quantity))),
+          };
+        } catch {
+          return null;
+        }
+      }));
+      if (!cancelled) setItems(fresh.filter((entry): entry is CartItem => entry !== null));
+    };
+    void revalidate();
+    window.addEventListener('focus', revalidate);
+    return () => {
+      cancelled = true;
+      window.removeEventListener('focus', revalidate);
+    };
+  }, []);
 
   const addItem = (product: Product, quantity: number = 1, selectedColor?: string, selectedSize?: string) => {
     if (product.stock <= 0) {

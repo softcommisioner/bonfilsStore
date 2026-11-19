@@ -74,6 +74,11 @@ export const api = {
     localStorage.removeItem(ADMIN_TOKEN_KEY);
     localStorage.removeItem(ADMIN_PROFILE_KEY);
   },
+  clearAllLocalAuth() {
+    this.clearToken();
+    this.clearAdminToken();
+    localStorage.removeItem('bonfils_user_mode');
+  },
 
   // ---------------------------------------------------------------- requests
   async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
@@ -177,7 +182,7 @@ export const api = {
       null,
       'app',
     );
-    this.clearToken();
+    this.clearAllLocalAuth();
     return data;
   },
 
@@ -201,7 +206,7 @@ export const api = {
     try {
       await this.request('/api/auth/logout', { method: 'POST' });
     } finally {
-      this.clearToken();
+      this.clearAllLocalAuth();
     }
   },
 
@@ -222,7 +227,7 @@ export const api = {
     try {
       await this.adminRequest('/api/admin/logout', { method: 'POST' });
     } finally {
-      this.clearAdminToken();
+      this.clearAllLocalAuth();
     }
   },
 

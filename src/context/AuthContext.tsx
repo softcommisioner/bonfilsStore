@@ -32,28 +32,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     localStorage.setItem('bonfils_user_mode', mode);
   };
 
+  const clearSessionState = () => {
+    setUser(null);
+    setBusiness(null);
+    setUserModeState('shopping');
+  };
+
   const refreshUser = async () => {
     try {
       if (!api.getToken()) {
-        api.clearToken();
-        setUser(null);
-        setBusiness(null);
+        api.clearAllLocalAuth();
+        clearSessionState();
         return;
       }
       const data = await api.getMe();
       setUser(data.user);
       setBusiness(data.business || null);
-      
+
       const savedMode = localStorage.getItem('bonfils_user_mode') as 'shopping' | 'seller';
-      if (savedMode) {
-        setUserModeState(savedMode);
-      }
+      setUserModeState(savedMode === 'seller' || savedMode === 'shopping' ? savedMode : 'shopping');
     } catch (err: any) {
-      // Never clear the stored session from a background verification. A
-      // transient network error, a parallel token rotation, or a permission
-      // failure must not drop an authenticated admin or seller on reload.
-      // Tokens are only removed by an explicit sign-out.
-      console.warn('[auth] background session refresh failed', err);
+      if (err?.status === 401) {
+        api.clearAllLocalAuth();
+        clearSessionState();
+      } else {
+        console.warn('[auth] background session refresh failed', err);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -67,6 +71,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const res = await api.login({ email, password });
     setUser(res.user);
     setBusiness(res.business || null);
+    setUserMode(res.user.roles.includes('seller') ? 'seller' : 'shopping');
     return res.user;
   };
 
@@ -74,14 +79,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const res = await api.register(payload);
     setUser(res.user);
     setBusiness(res.business || null);
+    setUserMode(res.user.roles.includes('seller') ? 'seller' : 'shopping');
     return res.user;
   };
 
   const logout = async () => {
-    await api.logout();
-    setUser(null);
-    setBusiness(null);
-    setUserModeState('shopping');
+    try {
+      await api.logout();
+    } finally {
+      clearSessionState();
+    }
   };
 
   return (

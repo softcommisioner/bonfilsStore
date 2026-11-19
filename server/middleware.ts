@@ -3,7 +3,7 @@ import { config } from './config.js';
 import { getStore } from './db/index.js';
 import type { Store, UserRecord } from './db/index.js';
 import type { AdminActivityLog, NotificationItem } from '../src/types.js';
-import { createSession, newId, readSessionToken } from './security.js';
+import { createSession, newId } from './security.js';
 
 declare global {
   // eslint-disable-next-line @typescript-eslint/no-namespace
@@ -45,27 +45,7 @@ export async function authenticateToken(req: Request, res: Response, next: NextF
     }
     const store = getStore();
     let session = await store.getSession(token);
-    let user = session ? await store.findUserById(session.userId) : null;
-
-    // Serverless deployments without a shared database start a fresh memory
-    // store per instance. A signed token still proves the session belongs to a
-    // real admin, so resolve the account by id (or email) instead of rejecting.
-    if (!session && store.kind === 'memory') {
-      const claims = readSessionToken(token);
-      if (claims) {
-        user = await store.findUserById(claims.userId)
-          || (claims.email ? await store.findUserByEmail(claims.email) : null);
-        if (user) {
-          session = {
-            token,
-            userId: user.id,
-            audience: claims.audience,
-            createdAt: claims.issuedAt,
-            expiresAt: claims.expiresAt,
-          };
-        }
-      }
-    }
+    const user = session ? await store.findUserById(session.userId) : null;
 
     if (!session || !user) {
       // A stale token in localStorage must not break public browsing. Treat it

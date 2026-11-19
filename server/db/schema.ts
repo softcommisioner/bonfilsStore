@@ -187,9 +187,6 @@ CREATE TABLE IF NOT EXISTS shipping_orders (
   updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 CREATE UNIQUE INDEX IF NOT EXISTS shipping_orders_tracking_key ON shipping_orders (tracking_number);
--- Legacy demo shipments only: real tracking data lives on orders and china
--- requests. Start the shipping dataset clean from zero on every boot.
-DELETE FROM shipping_orders;
 
 CREATE TABLE IF NOT EXISTS activity_logs (
   id          TEXT PRIMARY KEY,

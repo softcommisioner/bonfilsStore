@@ -1,5 +1,5 @@
 import type {
-  User, Business, Product, ProductFulfillmentStatus, Order, ChinaRequest, ShippingOrder,
+  User, Business, Product, ProductFulfillmentStatus, Order, OrderItem, ChinaRequest, ShippingOrder,
   AdminActivityLog, EmailRecord, NotificationItem, Category, AppSettings
 } from '../../src/types.js';
 
@@ -133,6 +133,12 @@ export interface Store {
   listOrders(query: OrderQuery): Promise<Order[]>;
   findOrder(idOrNumber: string): Promise<Order | null>;
   updateOrder(id: string, patch: Partial<Order>): Promise<Order | null>;
+  updateOrderItemsForSeller(
+    orderId: string,
+    businessId: string,
+    itemStatus: OrderItem['status'],
+    trackingNumber?: string,
+  ): Promise<Order | null>;
   placeOrder(order: Order, lines: Array<{ productId: string; quantity: number }>): Promise<Order>;
 
   listChinaRequests(query?: ChinaRequestQuery): Promise<ChinaRequest[]>;

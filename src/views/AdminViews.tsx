@@ -307,10 +307,10 @@ export const AdminViews: React.FC<AdminViewsProps> = ({ onNavigate }) => {
         const session = await api.getAdminSession();
         if (!cancelled) setAdmin(session.user);
       } catch (err: any) {
-        // Keep the cached admin profile and token on reload. A failed
-        // verification only surfaces an explicit re-authenticate prompt.
         if (!cancelled && err?.status === 401) {
-          setNeedsReauth(true);
+          api.clearAllLocalAuth();
+          setAdmin(null);
+          setNeedsReauth(false);
         }
       } finally {
         if (!cancelled) setBooting(false);
@@ -322,6 +322,12 @@ export const AdminViews: React.FC<AdminViewsProps> = ({ onNavigate }) => {
   useEffect(() => {
     if (!booting && admin) loadAll();
   }, [booting, admin]);
+
+  useEffect(() => {
+    const refresh = () => { if (admin) void loadAll(); };
+    window.addEventListener('focus', refresh);
+    return () => window.removeEventListener('focus', refresh);
+  }, [admin, loadAll]);
 
   useEffect(() => {
     if (!businesses.length) return;
@@ -346,10 +352,13 @@ export const AdminViews: React.FC<AdminViewsProps> = ({ onNavigate }) => {
   }, [productSearch, tab, admin, loadProducts]);
 
   const logout = async () => {
-    await api.adminLogout();
-    setAdmin(null);
-    setStats(null);
-    setNeedsReauth(false);
+    try {
+      await api.adminLogout();
+    } finally {
+      setAdmin(null);
+      setStats(null);
+      setNeedsReauth(false);
+    }
   };
 
   const staff = useMemo(() => users.filter(user => user.roles.includes('staff') || user.roles.includes('super_admin')), [users]);

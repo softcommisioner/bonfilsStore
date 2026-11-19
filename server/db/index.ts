@@ -20,15 +20,13 @@ function buildStore(): Store {
   if (config.databaseUrl) {
     return new PostgresStore(config.databaseUrl);
   }
-  const snapshotPath = config.isServerless
-    ? null
-    : path.join(process.cwd(), 'data', 'bonfils-store.json');
   if (config.isServerless) {
-    console.warn('[db] POSTGRES_URL / DATABASE_URL is not set. Running WITHOUT a database (data is not durable).');
-  } else {
-    console.log('[db] no POSTGRES_URL / DATABASE_URL set - using local JSON store at ./data/bonfils-store.json');
+    throw new Error(
+      'DATABASE_URL is required in serverless deployments. Without it every write would live only in the current function instance and disappear on the next request.',
+    );
   }
-  return new MemoryStore(snapshotPath);
+  console.log('[db] no POSTGRES_URL / DATABASE_URL set - using local JSON store at ./data/bonfils-store.json');
+  return new MemoryStore(path.join(process.cwd(), 'data', 'bonfils-store.json'));
 }
 
 export async function initStore(): Promise<Store> {

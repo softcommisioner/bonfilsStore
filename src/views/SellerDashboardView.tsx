@@ -83,6 +83,12 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({ onNavi
   }, []);
 
   useEffect(() => {
+    const refresh = () => { void fetchDashboardData(); };
+    window.addEventListener('focus', refresh);
+    return () => window.removeEventListener('focus', refresh);
+  }, []);
+
+  useEffect(() => {
     if (!business) return;
     setMomoPayCode(business.momoPayCode || '');
     setAirtelMoneyCode(business.airtelMoneyCode || '');
@@ -106,6 +112,7 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({ onNavi
         whatsappNumber: whatsappNumber.trim(),
       });
       setBusiness(result.business);
+      await fetchDashboardData();
       setPaymentSaved(true);
     } catch (err: any) {
       setFormError(err.message || 'Could not save payment details.');

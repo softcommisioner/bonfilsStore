@@ -51,7 +51,7 @@ async function productFromPayload(body: Record<string, unknown>, existing?: Prod
       ? body.specifications
       : existing?.specifications) as Product['specifications'],
     isFeatured: existing?.isFeatured ?? false,
-    isActive: body.isActive === undefined ? true : Boolean(body.isActive),
+    isActive: body.isActive === undefined ? (existing?.isActive ?? true) : Boolean(body.isActive),
   };
 }
 
@@ -200,14 +200,15 @@ router.patch('/orders/:orderId/status', asyncHandler(async (req, res) => {
     return res.status(403).json({ error: 'This order does not contain products from your store.' });
   }
 
-  const items = order.items.map(item => (item.businessId === business.id ? { ...item, status, trackingNumber: req.body?.trackingNumber || item.trackingNumber } : item));
-  const allSettled = items.every(item => ['delivered', 'cancelled'].includes(item.status));
-  const anyShipped = items.some(item => ['shipped', 'delivered'].includes(item.status));
-  const orderStatus = allSettled
-    ? (items.every(item => item.status === 'cancelled') ? 'cancelled' : 'delivered')
-    : anyShipped ? 'partially_shipped' : status === 'shipped' ? 'shipped' : 'processing';
-
-  const updated = await store.updateOrder(order.id, { items, status: orderStatus as typeof order.status });
+  const trackingNumber = typeof req.body?.trackingNumber === 'string'
+    ? req.body.trackingNumber.trim() || undefined
+    : undefined;
+  const updated = await store.updateOrderItemsForSeller(
+    order.id,
+    business.id,
+    status,
+    trackingNumber,
+  );
   await logActivity({
     actor: req.user!,
     action: 'ORDER_ITEM_STATUS',
