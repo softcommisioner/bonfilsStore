@@ -77,9 +77,13 @@ export function createServer(): Express {
 
 export async function bootstrap(): Promise<Express> {
   const store = await initStore();
-  await runSeed(store);
+  try {
+    await runSeed(store);
+  } catch (error) {
+    console.error('[seed] startup seed failed, continuing without blocking API startup', error);
+  }
   if (store.kind === 'memory' && config.isServerless) {
-    console.warn('[api] running without a database: attach Neon/Postgres before accepting real orders.');
+    console.warn('[api] running without a durable database: writes may not persist across serverless instances.');
   }
   return createServer();
 }

@@ -25,7 +25,7 @@ export default async function handler(req: Request, res: Response, next: NextFun
     return app(req, res, next);
   } catch (error) {
     const detail = error instanceof Error ? error.message : 'Unknown startup error';
-    console.error('[api] request failed before the app was ready', detail, error);
+    console.error(`[api] request failed before the app was ready: ${detail}`);
     if (!res.headersSent) {
       res.status(503).json({ error: 'The API is temporarily unavailable. Please retry.', detail });
     }

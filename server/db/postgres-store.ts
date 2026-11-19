@@ -210,8 +210,10 @@ export class PostgresStore implements Store {
       connectionString,
       max: isServerless ? 1 : 5,
       idleTimeoutMillis: isServerless ? 5_000 : 30_000,
-      connectionTimeoutMillis: 10_000,
+      connectionTimeoutMillis: 15_000,
       allowExitOnIdle: isServerless,
+      keepAlive: true,
+      keepAliveInitialDelayMillis: 10_000,
       ssl: isLocal || sslDisabled ? undefined : { rejectUnauthorized: false },
     });
   }
