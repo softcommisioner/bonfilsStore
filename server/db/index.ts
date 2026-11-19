@@ -33,14 +33,23 @@ export async function initStore(): Promise<Store> {
   if (initPromise) return initPromise;
 
   initPromise = (async () => {
-    const store = buildStore();
-    await store.init();
-    if (store instanceof PostgresStore && config.runMigrationsOnBoot) {
-      await runMigrations(store);
+    let store: Store | null = null;
+    try {
+      store = buildStore();
+      await store.init();
+      if (store instanceof PostgresStore && config.runMigrationsOnBoot) {
+        await runMigrations(store);
+      }
+      storeInstance = store;
+      console.log(`[db] store ready (${store.kind})`);
+      return store;
+    } catch (error) {
+      initPromise = null;
+      if (store) {
+        await store.close().catch(() => {});
+      }
+      throw error;
     }
-    storeInstance = store;
-    console.log(`[db] store ready (${store.kind})`);
-    return store;
   })();
 
   return initPromise;
