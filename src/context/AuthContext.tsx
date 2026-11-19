@@ -18,8 +18,12 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null);
-  const [business, setBusiness] = useState<Business | null>(null);
+  const [user, setUser] = useState<User | null>(() => (
+    api.getToken() ? api.getUserProfile() : null
+  ));
+  const [business, setBusiness] = useState<Business | null>(() => (
+    api.getToken() ? api.getUserBusiness() : null
+  ));
   const [isLoading, setIsLoading] = useState(true);
   const [userMode, setUserModeState] = useState<'shopping' | 'seller'>('shopping');
 
@@ -31,22 +35,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const refreshUser = async () => {
     try {
       if (!api.getToken()) {
+        api.clearToken();
         setUser(null);
         setBusiness(null);
         return;
       }
       const data = await api.getMe();
       setUser(data.user);
-      if (data.business) setBusiness(data.business);
+      setBusiness(data.business || null);
       
       const savedMode = localStorage.getItem('bonfils_user_mode') as 'shopping' | 'seller';
-      if (savedMode && data.user.roles.includes('seller')) {
+      if (savedMode) {
         setUserModeState(savedMode);
       }
-    } catch (err) {
-      api.clearToken();
-      setUser(null);
-      setBusiness(null);
+    } catch (err: any) {
+      // Never clear the stored session from a background verification. A
+      // transient network error, a parallel token rotation, or a permission
+      // failure must not drop an authenticated admin or seller on reload.
+      // Tokens are only removed by an explicit sign-out.
+      console.warn('[auth] background session refresh failed', err);
     } finally {
       setIsLoading(false);
     }

@@ -17,6 +17,17 @@ import { AuthViews } from './views/AuthViews';
 import { ShopsView } from './views/ShopsView';
 import { CategoriesView } from './views/CategoriesView';
 
+function isAdminLocation(path: string, hash: string): boolean {
+  const normalizedPath = path.toLowerCase();
+  const normalizedHash = hash.toLowerCase().replace(/^\//, '');
+  return normalizedPath.startsWith('/admin')
+    || normalizedPath.startsWith('/superadmin')
+    || normalizedHash === 'admin'
+    || normalizedHash === 'superadmin'
+    || normalizedHash.startsWith('admin/')
+    || normalizedHash.startsWith('superadmin/');
+}
+
 function NotFoundView({ onNavigate }: { onNavigate: (route: string) => void }) {
   return (
     <div className="max-w-3xl mx-auto px-4 py-24 text-center space-y-4">
@@ -39,7 +50,7 @@ function MainRouter() {
   const [currentRoute, setCurrentRoute] = useState<string>(() => {
     const path = window.location.pathname;
     const hash = window.location.hash.replace('#', '');
-    if (path.startsWith('/admin') || hash === 'admin' || hash.startsWith('/admin')) {
+    if (isAdminLocation(path, hash)) {
       return '/admin';
     }
     return hash ? `/${hash.replace(/^\//, '')}` : (path || '/');
@@ -58,7 +69,7 @@ function MainRouter() {
     const handlePopState = () => {
       const hash = window.location.hash.replace('#', '');
       const path = window.location.pathname;
-      if (path.startsWith('/admin') || hash === 'admin' || hash.startsWith('/admin')) {
+      if (isAdminLocation(path, hash)) {
         setCurrentRoute('/admin');
       } else if (hash) {
         setCurrentRoute(`/${hash.replace(/^\//, '')}`);

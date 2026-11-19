@@ -29,6 +29,7 @@ export const CustomerAccountView: React.FC<CustomerAccountViewProps> = ({
   const [editCity, setEditCity] = useState(user?.city || '');
   const [editCountry, setEditCountry] = useState(user?.country || '');
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [saveError, setSaveError] = useState('');
 
   useEffect(() => {
     setActiveTab(initialTab);
@@ -65,10 +66,11 @@ export const CustomerAccountView: React.FC<CustomerAccountViewProps> = ({
         country: editCountry,
       });
       await refreshUser();
+      setSaveError('');
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 2000);
-    } catch (err) {
-      alert('Error updating profile');
+    } catch (err: any) {
+      setSaveError(err?.status === 403 ? 'You do not have permission to update this profile.' : 'Error updating profile');
     }
   };
 
@@ -334,6 +336,12 @@ export const CustomerAccountView: React.FC<CustomerAccountViewProps> = ({
           {saveSuccess && (
             <div className="p-3 bg-emerald-50 text-[#22A06B] text-xs rounded-lg">
               Profile updated successfully.
+            </div>
+          )}
+
+          {saveError && (
+            <div className="p-3 bg-red-50 text-red-700 text-xs rounded-lg">
+              {saveError}
             </div>
           )}
 

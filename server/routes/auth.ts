@@ -12,6 +12,17 @@ import {
 
 const router = Router();
 
+function normalizedRoles(user: UserRecord): UserRecord['roles'] {
+  const roles = new Set<string>(user.roles);
+  if (user.accountType === 'seller' || user.accountType === 'both' || user.businessId) {
+    roles.add('seller');
+  }
+  if (user.accountType === 'customer' || user.accountType === 'both') {
+    roles.add('customer');
+  }
+  return Array.from(roles) as UserRecord['roles'];
+}
+
 router.post('/register', asyncHandler(async (req, res) => {
   const { name, email, phone, password, confirmPassword, country, city, accountType, acceptTerms } = req.body || {};
 
@@ -141,9 +152,13 @@ router.post('/login', asyncHandler(async (req, res) => {
     return res.status(403).json({ error: 'This account has been disabled. Please contact support.' });
   }
 
-  const activeUser = user.isVerified
-    ? user
-    : (await store.updateUser(user.id, { isVerified: true, status: 'active' }))!;
+  // Normalise legacy accounts on sign-in so seller dashboards and their API
+  // routes always receive the expected role and verified flags.
+  const activeUser = (await store.updateUser(user.id, {
+    roles: normalizedRoles(user),
+    isVerified: true,
+    status: 'active',
+  }))!;
 
   const token = await createSession(activeUser.id, 'app', config.sessionTtlMs);
   await logActivity({

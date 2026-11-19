@@ -206,6 +206,7 @@ export const AdminViews: React.FC<AdminViewsProps> = ({ onNavigate }) => {
 
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [needsReauth, setNeedsReauth] = useState(false);
   const [toast, setToast] = useState('');
   const [productSearch, setProductSearch] = useState('');
   const [productDraft, setProductDraft] = useState<ProductDraft | null>(null);
@@ -218,9 +219,19 @@ export const AdminViews: React.FC<AdminViewsProps> = ({ onNavigate }) => {
     window.setTimeout(() => setToast(''), 3500);
   }, []);
 
+  const reportError = useCallback((err: any, fallback: string) => {
+    if (err?.status === 401) {
+      setNeedsReauth(true);
+      setError(err.message || 'Please sign in to continue.');
+      return;
+    }
+    setError(err.message || fallback);
+  }, []);
+
   const handleVerified = useCallback((user: User) => {
     api.setAdminProfile(user);
     setAdmin(user);
+    setNeedsReauth(false);
     setBooting(false);
   }, []);
 
@@ -257,28 +268,13 @@ export const AdminViews: React.FC<AdminViewsProps> = ({ onNavigate }) => {
       setLogs(logData || []);
       setEmailLog(emailData);
     } catch (err: any) {
-      if (err?.status === 401 || err?.status === 403) {
-        // A single data endpoint must not sign the admin out. Confirm the
-        // session first; only clear the token when the session itself is gone.
-        try {
-          const session = await api.getAdminSession();
-          setAdmin(session.user);
-          setError('Some console data could not be refreshed. Please retry.');
-        } catch (sessionErr: any) {
-          if (sessionErr?.status === 401 || sessionErr?.status === 403) {
-            api.clearAdminToken();
-            setAdmin(null);
-          } else {
-            setError(sessionErr.message || 'Failed to verify the admin session.');
-          }
-        }
-      } else {
-        setError(err.message || 'Failed to load the console data.');
-      }
+      // Background data loading must never sign the admin out. A 401 only
+      // offers an explicit re-authentication action; cached access stays put.
+      reportError(err, 'Failed to load the console data.');
     } finally {
       setBusy(false);
     }
-  }, [productSearch]);
+  }, [productSearch, reportError]);
 
   useEffect(() => {
     let cancelled = false;
@@ -295,9 +291,10 @@ export const AdminViews: React.FC<AdminViewsProps> = ({ onNavigate }) => {
         const session = await api.getAdminSession();
         if (!cancelled) setAdmin(session.user);
       } catch (err: any) {
-        if (!cancelled && (err?.status === 401 || err?.status === 403)) {
-          api.clearAdminToken();
-          setAdmin(null);
+        // Keep the cached admin profile and token on reload. A failed
+        // verification only surfaces an explicit re-authenticate prompt.
+        if (!cancelled && err?.status === 401) {
+          setNeedsReauth(true);
         }
       } finally {
         if (!cancelled) setBooting(false);
@@ -320,6 +317,7 @@ export const AdminViews: React.FC<AdminViewsProps> = ({ onNavigate }) => {
     await api.adminLogout();
     setAdmin(null);
     setStats(null);
+    setNeedsReauth(false);
   };
 
   const staff = useMemo(() => users.filter(user => user.roles.includes('staff') || user.roles.includes('super_admin')), [users]);
@@ -360,7 +358,7 @@ export const AdminViews: React.FC<AdminViewsProps> = ({ onNavigate }) => {
       setProductDraft(null);
       await loadAll();
     } catch (err: any) {
-      setError(err.message || 'Could not save the product.');
+      reportError(err, 'Could not save the product.');
     } finally {
       setBusy(false);
     }
@@ -373,7 +371,7 @@ export const AdminViews: React.FC<AdminViewsProps> = ({ onNavigate }) => {
       flash('Product deleted.');
       await loadAll();
     } catch (err: any) {
-      setError(err.message || 'Could not delete the product.');
+      reportError(err, 'Could not delete the product.');
     }
   };
 
@@ -392,7 +390,7 @@ export const AdminViews: React.FC<AdminViewsProps> = ({ onNavigate }) => {
       setProductDraft({ ...productDraft, images: [...productDraft.images, result.url].slice(0, 8) });
       flash('Image uploaded.');
     } catch (err: any) {
-      setError(err.message || 'Image upload failed.');
+      reportError(err, 'Image upload failed.');
     } finally {
       setBusy(false);
     }
@@ -429,7 +427,7 @@ export const AdminViews: React.FC<AdminViewsProps> = ({ onNavigate }) => {
       setUserDraft(null);
       await loadAll();
     } catch (err: any) {
-      setError(err.message || 'Could not save the account.');
+      reportError(err, 'Could not save the account.');
     } finally {
       setBusy(false);
     }
@@ -442,7 +440,7 @@ export const AdminViews: React.FC<AdminViewsProps> = ({ onNavigate }) => {
       flash('Account deleted.');
       await loadAll();
     } catch (err: any) {
-      setError(err.message || 'Could not delete the account.');
+      reportError(err, 'Could not delete the account.');
     }
   };
 
@@ -467,7 +465,7 @@ export const AdminViews: React.FC<AdminViewsProps> = ({ onNavigate }) => {
       setBusinessDraft(null);
       await loadAll();
     } catch (err: any) {
-      setError(err.message || 'Could not save the store.');
+      reportError(err, 'Could not save the store.');
     } finally {
       setBusy(false);
     }
@@ -500,7 +498,7 @@ export const AdminViews: React.FC<AdminViewsProps> = ({ onNavigate }) => {
       setCategoryDraft(null);
       await loadAll();
     } catch (err: any) {
-      setError(err.message || 'Could not save the category.');
+      reportError(err, 'Could not save the category.');
     } finally {
       setBusy(false);
     }
@@ -512,7 +510,7 @@ export const AdminViews: React.FC<AdminViewsProps> = ({ onNavigate }) => {
       flash(`Order ${order.orderNumber} updated.`);
       await loadAll();
     } catch (err: any) {
-      setError(err.message || 'Could not update the order.');
+      reportError(err, 'Could not update the order.');
     }
   };
 
@@ -522,7 +520,7 @@ export const AdminViews: React.FC<AdminViewsProps> = ({ onNavigate }) => {
       flash(`${request.requestNumber} reassigned.`);
       await loadAll();
     } catch (err: any) {
-      setError(err.message || 'Could not assign that request.');
+      reportError(err, 'Could not assign that request.');
     }
   };
 
@@ -550,7 +548,9 @@ export const AdminViews: React.FC<AdminViewsProps> = ({ onNavigate }) => {
             </div>
             <div className="min-w-0">
               <h1 className="text-sm font-extrabold truncate">Super Admin Console</h1>
-              <p className="text-[10px] text-[#666666] truncate">{admin.email} · verified session</p>
+              <p className="text-[10px] text-[#666666] truncate">
+                {admin.email} · {needsReauth ? 're-authentication recommended' : 'verified session'}
+              </p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -580,6 +580,24 @@ export const AdminViews: React.FC<AdminViewsProps> = ({ onNavigate }) => {
       </header>
 
       <main className="max-w-[1400px] mx-auto px-4 sm:px-6 py-6 space-y-5">
+        {needsReauth && (
+          <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-[11px] text-amber-300">
+            <AlertTriangle className="w-4 h-4 shrink-0 mt-px" />
+            <span className="flex-1">
+              Your saved admin session needs attention. Re-authenticate to continue from where you left off.
+            </span>
+            <button
+              onClick={() => {
+                api.clearAdminToken();
+                setAdmin(null);
+                setNeedsReauth(false);
+              }}
+              className="font-bold underline cursor-pointer"
+            >
+              Sign in again
+            </button>
+          </div>
+        )}
         {error && (
           <div className="flex items-start gap-2 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-[11px] text-red-300">
             <AlertTriangle className="w-4 h-4 shrink-0 mt-px" />

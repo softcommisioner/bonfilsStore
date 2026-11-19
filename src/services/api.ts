@@ -4,6 +4,8 @@ import type {
 } from '../types';
 
 const TOKEN_KEY = 'bonfils_store_auth_token';
+const USER_PROFILE_KEY = 'bonfils_store_user_profile';
+const USER_BUSINESS_KEY = 'bonfils_store_user_business';
 const ADMIN_TOKEN_KEY = 'bonfils_store_admin_token';
 const ADMIN_PROFILE_KEY = 'bonfils_store_admin_profile';
 
@@ -21,6 +23,30 @@ export const api = {
   },
   clearToken() {
     localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(USER_PROFILE_KEY);
+    localStorage.removeItem(USER_BUSINESS_KEY);
+  },
+  getUserProfile(): User | null {
+    try {
+      const raw = localStorage.getItem(USER_PROFILE_KEY);
+      return raw ? JSON.parse(raw) as User : null;
+    } catch {
+      return null;
+    }
+  },
+  setUserProfile(user: User) {
+    localStorage.setItem(USER_PROFILE_KEY, JSON.stringify(user));
+  },
+  getUserBusiness(): Business | null {
+    try {
+      const raw = localStorage.getItem(USER_BUSINESS_KEY);
+      return raw ? JSON.parse(raw) as Business : null;
+    } catch {
+      return null;
+    }
+  },
+  setUserBusiness(business: Business) {
+    localStorage.setItem(USER_BUSINESS_KEY, JSON.stringify(business));
   },
 
   getAdminToken(): string | null {
@@ -50,14 +76,20 @@ export const api = {
 
   // ---------------------------------------------------------------- requests
   async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-    return this.send<T>(endpoint, options, this.getToken());
+    return this.send<T>(endpoint, options, this.getToken(), 'app');
   },
 
   async adminRequest<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-    return this.send<T>(endpoint, options, this.getAdminToken());
+    return this.send<T>(endpoint, options, this.getAdminToken(), 'admin');
   },
 
-  async send<T>(endpoint: string, options: RequestInit, token: string | null): Promise<T> {
+  async send<T>(
+    endpoint: string,
+    options: RequestInit,
+    token: string | null,
+    tokenType: 'app' | 'admin' = 'app',
+    allowRetry = true,
+  ): Promise<T> {
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
       ...(options.headers as Record<string, string>),
@@ -73,10 +105,26 @@ export const api = {
       throw new Error('Network error. Please check your connection and try again.');
     }
 
+    const refreshedToken = response.headers.get('x-session-token');
+    if (refreshedToken) {
+      const audience = response.headers.get('x-session-audience');
+      if (audience === 'admin') this.setAdminToken(refreshedToken);
+      else if (audience === 'app') this.setToken(refreshedToken);
+    }
+
     const data = await response.json().catch(() => ({}));
     if (!response.ok) {
+      if (response.status === 401 && allowRetry) {
+        const latestToken = tokenType === 'admin' ? this.getAdminToken() : this.getToken();
+        if (latestToken && latestToken !== token) {
+          return this.send<T>(endpoint, options, latestToken, tokenType, false);
+        }
+      }
       if (response.status === 401 || response.status === 403) {
-        const error = new Error((data as any).error || 'Your session is not valid. Please sign in again.');
+        const fallback = response.status === 401
+          ? 'Please sign in to continue.'
+          : 'You do not have permission to perform this action.';
+        const error = new Error((data as any).error || fallback);
         (error as any).status = response.status;
         throw error;
       }
@@ -87,46 +135,65 @@ export const api = {
 
   // -------------------------------------------------------------------- auth
   async register(payload: any) {
-    const data = await this.request<{ success: boolean; message: string; user: User; token: string; business?: Business }>(
+    const data = await this.send<{ success: boolean; message: string; user: User; token: string; business?: Business }>(
       '/api/auth/register',
       { method: 'POST', body: JSON.stringify(payload) },
+      null,
+      'app',
     );
     if (data.token) this.setToken(data.token);
+    if (data.user) this.setUserProfile(data.user);
+    if (data.business) this.setUserBusiness(data.business);
     return data;
   },
 
   async login(payload: { email: string; password: string }) {
-    const data = await this.request<{ success: boolean; message: string; user: User; token: string; business?: Business }>(
+    const data = await this.send<{ success: boolean; message: string; user: User; token: string; business?: Business }>(
       '/api/auth/login',
       { method: 'POST', body: JSON.stringify(payload) },
+      null,
+      'app',
     );
     if (data.token) this.setToken(data.token);
+    if (data.user) this.setUserProfile(data.user);
+    if (data.business) this.setUserBusiness(data.business);
     return data;
   },
 
   async forgotPassword(email: string) {
-    return this.request<{ success: boolean; email: string; message: string }>(
+    return this.send<{ success: boolean; email: string; message: string }>(
       '/api/auth/forgot-password',
       { method: 'POST', body: JSON.stringify({ email }) },
+      null,
+      'app',
     );
   },
 
   async resetPassword(payload: { email: string; newPassword: string; confirmPassword: string }) {
-    return this.request<{ success: boolean; message: string }>(
+    const data = await this.send<{ success: boolean; message: string }>(
       '/api/auth/reset-password',
       { method: 'POST', body: JSON.stringify(payload) },
+      null,
+      'app',
     );
+    this.clearToken();
+    return data;
   },
 
   async getMe() {
-    return this.request<{ user: User; business?: Business }>('/api/auth/me');
+    const data = await this.request<{ user: User; business?: Business }>('/api/auth/me');
+    if (data.user) this.setUserProfile(data.user);
+    if (data.business) this.setUserBusiness(data.business);
+    return data;
   },
 
   async updateProfile(payload: Partial<User>) {
-    return this.request<{ success: boolean; user: User }>(
+    const data = await this.request<{ success: boolean; user: User }>(
       '/api/auth/profile',
       { method: 'PUT', body: JSON.stringify(payload) },
     );
+    if (data.user) this.setUserProfile(data.user);
+    return data;
   },
 
   async logout() {
@@ -139,9 +206,11 @@ export const api = {
 
   // -------------------------------------------------------------- super admin
   async adminLogin(payload: { email: string; password: string }) {
-    const data = await this.request<{ success: boolean; message: string; user: User; token: string }>(
+    const data = await this.send<{ success: boolean; message: string; user: User; token: string }>(
       '/api/admin/login',
       { method: 'POST', body: JSON.stringify(payload) },
+      null,
+      'admin',
     );
     if (data.token) this.setAdminToken(data.token);
     if (data.user) this.setAdminProfile(data.user);

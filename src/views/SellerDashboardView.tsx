@@ -27,6 +27,7 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({ onNavi
     pendingOrders: 0,
   });
   const [isLoading, setIsLoading] = useState(true);
+  const [formError, setFormError] = useState('');
 
   // Add/Edit Product Modal State
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
@@ -68,6 +69,7 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({ onNavi
   }, []);
 
   const handleOpenAddModal = () => {
+    setFormError('');
     setEditingProduct(null);
     setProdTitle('');
     setProdDesc('');
@@ -81,6 +83,7 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({ onNavi
   };
 
   const handleOpenEditModal = (p: Product) => {
+    setFormError('');
     setEditingProduct(p);
     setProdTitle(p.title);
     setProdDesc(p.description);
@@ -113,10 +116,15 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({ onNavi
         await api.createSellerProduct(payload);
       }
 
+      setFormError('');
       setIsProductModalOpen(false);
       await fetchDashboardData();
     } catch (err: any) {
-      alert(err.message || 'Error saving product');
+      setFormError(
+        err?.status === 403
+          ? 'You do not have permission to save products.'
+          : (err?.message || 'Error saving product'),
+      );
     }
   };
 
@@ -573,6 +581,12 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({ onNavi
                   className="w-full px-3 py-2 border border-[#E5E5E5] rounded-lg focus:border-[#FF6A00] focus:outline-none"
                 />
               </div>
+
+              {formError && (
+                <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+                  {formError}
+                </div>
+              )}
 
               <div className="pt-3 flex justify-end gap-2 border-t border-[#F0F0F0]">
                 <button

@@ -3,7 +3,7 @@ import { config } from './config.js';
 import { getStore } from './db/index.js';
 import type { Store, UserRecord } from './db/index.js';
 import type { AdminActivityLog, NotificationItem } from '../src/types.js';
-import { newId, readSessionToken } from './security.js';
+import { createSession, newId, readSessionToken } from './security.js';
 
 declare global {
   // eslint-disable-next-line @typescript-eslint/no-namespace
@@ -33,7 +33,8 @@ function bearerToken(req: Request): string | null {
  * Resolves the caller when a token is present. Public endpoints (catalog,
  * health, login) must stay reachable, so a missing token is not an error here;
  * `requireAuth`, `requireAdmin` and `requireRole` reject anonymous callers.
- * A present-but-invalid token is rejected immediately.
+ * A present-but-invalid token is ignored so public pages keep working while a
+ * stale localStorage token is replaced on the next successful sign-in.
  */
 export async function authenticateToken(req: Request, res: Response, next: NextFunction) {
   try {
@@ -67,13 +68,40 @@ export async function authenticateToken(req: Request, res: Response, next: NextF
     }
 
     if (!session || !user) {
-      res.status(401).json({ error: 'Session expired. Please sign in again.' });
+      // A stale token in localStorage must not break public browsing. Treat it
+      // as anonymous and let the route guards decide whether auth is required.
+      next();
       return;
     }
     if (user.status !== 'active') {
-      res.status(401).json({ error: 'Account is not active' });
+      res.status(401).json({ error: 'This account is not active. Please contact support.' });
       return;
     }
+
+    // Sliding session: renew the token long before it expires so long forms
+    // and background requests are never interrupted. The previous token is
+    // intentionally left valid until its natural expiry: deleting it here
+    // causes parallel requests (admin dashboard loads nine endpoints at once)
+    // to fail with false session-expired errors.
+    const ttl = session.audience === 'admin' ? config.adminSessionTtlMs : config.sessionTtlMs;
+    const remaining = session.expiresAt - Date.now();
+    if (Number.isFinite(remaining) && remaining < ttl / 2) {
+      try {
+        const refreshedToken = await createSession(user.id, session.audience, ttl);
+        res.setHeader('X-Session-Token', refreshedToken);
+        res.setHeader('X-Session-Audience', session.audience);
+        session = {
+          token: refreshedToken,
+          userId: user.id,
+          audience: session.audience,
+          createdAt: Date.now(),
+          expiresAt: Date.now() + ttl,
+        };
+      } catch (refreshError) {
+        console.error('[auth] session refresh failed', refreshError);
+      }
+    }
+
     req.user = user;
     req.session = { token: session.token, audience: session.audience };
     next();
@@ -84,7 +112,7 @@ export async function authenticateToken(req: Request, res: Response, next: NextF
 
 export function requireAuth(req: Request, res: Response, next: NextFunction) {
   if (!req.user) {
-    res.status(401).json({ error: 'Authentication required' });
+    res.status(401).json({ error: 'Please sign in to continue.' });
     return;
   }
   next();
@@ -102,7 +130,7 @@ export function hasSuperAdminRole(roles: readonly string[] | undefined): boolean
  */
 export function requireAdmin(req: Request, res: Response, next: NextFunction) {
   if (!req.user) {
-    res.status(401).json({ error: 'Admin authentication required' });
+    res.status(401).json({ error: 'Please sign in through the Super Admin console to continue.' });
     return;
   }
   if (req.session?.audience !== 'admin') {
@@ -119,7 +147,7 @@ export function requireAdmin(req: Request, res: Response, next: NextFunction) {
 export function requireRole(...roles: Array<UserRecord['roles'][number]>) {
   return (req: Request, res: Response, next: NextFunction) => {
     if (!req.user) {
-      res.status(401).json({ error: 'Authentication required' });
+      res.status(401).json({ error: 'Please sign in to continue.' });
       return;
     }
     const allowed = roles.some(role => req.user!.roles.includes(role));
