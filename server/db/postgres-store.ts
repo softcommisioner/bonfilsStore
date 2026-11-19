@@ -193,15 +193,26 @@ export class PostgresStore implements Store {
   private pool: Pool;
 
   constructor(connectionString: string) {
-    const isLocal = /localhost|127\.0\.0\.1|\[::1\]/i.test(connectionString);
     const isServerless = Boolean(process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME);
+    let hostname = '';
+    let sslMode = '';
+    try {
+      const url = new URL(connectionString);
+      hostname = url.hostname.toLowerCase();
+      sslMode = (url.searchParams.get('sslmode') || '').toLowerCase();
+    } catch {
+      hostname = '';
+      sslMode = '';
+    }
+    const isLocal = hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1' || hostname === '[::1]';
+    const sslDisabled = sslMode === 'disable';
     this.pool = new Pool({
       connectionString,
       max: isServerless ? 1 : 5,
       idleTimeoutMillis: isServerless ? 5_000 : 30_000,
       connectionTimeoutMillis: 10_000,
       allowExitOnIdle: isServerless,
-      ssl: isLocal ? undefined : { rejectUnauthorized: false },
+      ssl: isLocal || sslDisabled ? undefined : { rejectUnauthorized: false },
     });
   }
 

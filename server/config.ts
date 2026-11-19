@@ -25,12 +25,64 @@ function toBool(value: string | undefined, fallback = false): boolean {
   return ['1', 'true', 'yes', 'on'].includes(value.toLowerCase());
 }
 
-const databaseUrl = firstDefined(
-  process.env.DATABASE_URL,
-  process.env.POSTGRES_URL,
-  process.env.PG_URL,
-  process.env.POSTGRES_PRISMA_URL,
-);
+function repairConnectionString(value: string): string | undefined {
+  const schemeMatch = /^([a-z][a-z0-9+.-]*:\/\/)/i.exec(value);
+  if (!schemeMatch) return undefined;
+  const rest = value.slice(schemeMatch[1].length);
+  const cut = rest.search(/[/?#]/);
+  const authority = cut === -1 ? rest : rest.slice(0, cut);
+  const suffix = cut === -1 ? '' : rest.slice(cut);
+  const at = authority.lastIndexOf('@');
+  if (at === -1) return undefined;
+  const userInfo = authority.slice(0, at);
+  const hostPart = authority.slice(at + 1);
+  if (!hostPart) return undefined;
+  const colon = userInfo.indexOf(':');
+  const user = colon === -1 ? userInfo : userInfo.slice(0, colon);
+  const password = colon === -1 ? '' : userInfo.slice(colon + 1);
+  const safe = (segment: string) => segment.replace(/%(?![0-9A-Fa-f]{2})|[^\w.\-~%!$&'()*+,;=]/g, (ch) => (
+    ch === '%' ? '%25' : encodeURIComponent(ch)
+  ));
+  const repaired = `${schemeMatch[1]}${safe(user)}${colon === -1 ? '' : `:${safe(password)}`}@${hostPart}${suffix}`;
+  try {
+    new URL(repaired);
+    return repaired;
+  } catch {
+    return undefined;
+  }
+}
+
+function normalizeAndValidateDatabaseUrl(value: string): string {
+  let normalized = value;
+  if ((normalized.startsWith('"') && normalized.endsWith('"')) || (normalized.startsWith("'") && normalized.endsWith("'"))) {
+    normalized = normalized.slice(1, -1).trim();
+  }
+  if (!normalized) {
+    throw new Error('Invalid DATABASE_URL/POSTGRES_URL: connection string is empty after trimming.');
+  }
+  try {
+    new URL(normalized);
+    return normalized;
+  } catch {
+    const repaired = repairConnectionString(normalized);
+    if (repaired) return repaired;
+    throw new Error(
+      'Invalid DATABASE_URL/POSTGRES_URL: could not parse connection string. Check for surrounding quotes/whitespace, unencoded special characters in credentials, or a missing/invalid host or port.',
+    );
+  }
+}
+
+function pickDatabaseUrl(): string | undefined {
+  for (const raw of [process.env.DATABASE_URL, process.env.POSTGRES_URL, process.env.PG_URL, process.env.POSTGRES_PRISMA_URL]) {
+    if (typeof raw !== 'string') continue;
+    const trimmed = raw.replace(/[\r\n]+/g, '').trim();
+    if (!trimmed || trimmed.includes('optional')) continue;
+    return normalizeAndValidateDatabaseUrl(trimmed);
+  }
+  return undefined;
+}
+
+const databaseUrl = pickDatabaseUrl();
 
 const gmailUser = firstDefined(process.env.GMAIL_USER);
 const gmailAppPassword = firstDefined(process.env.GMAIL_APP_PASSWORD);
