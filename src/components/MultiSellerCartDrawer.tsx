@@ -3,6 +3,7 @@ import { X, ShoppingBag, Trash2, Plus, Minus, ArrowRight, Store, CheckCircle } f
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../services/api';
+import { compressImageFile } from '../services/images';
 import {
   DEFAULT_USD_TO_RWF_RATE, formatRwf, normalizeUsdToRwfRate, whatsappLink,
   type SellerPaymentInfo,
@@ -18,6 +19,13 @@ function bankSummary(payment: SellerPaymentInfo): string {
     payment.bankAccountName,
     payment.bankAccountNumber ? `A/C ${payment.bankAccountNumber}` : '',
   ].filter(Boolean).join(' · ');
+}
+
+function paymentWhatsappMessage(order: any, sellerName: string): string {
+  const amount = Number(order?.total || 0);
+  const rate = normalizeUsdToRwfRate(order?.usdToRwfRate);
+  const method = String(order?.paymentMethod || '').replace(/_/g, ' ').toUpperCase();
+  return `Hi ${sellerName}, I have paid for Bonfils Store order ${order?.orderNumber || ''} ($${amount.toFixed(2)} / ${formatRwf(amount, rate)}) via ${method}. I have the payment screenshot ready to share — please confirm receipt.`;
 }
 
 export const MultiSellerCartDrawer: React.FC<MultiSellerCartDrawerProps> = ({ onNavigate }) => {
@@ -40,6 +48,9 @@ export const MultiSellerCartDrawer: React.FC<MultiSellerCartDrawerProps> = ({ on
   const [street, setStreet] = useState('KG 9 Ave, Nyarutarama');
   const [paymentMethod, setPaymentMethod] = useState<'momo_pay' | 'airtel_money' | 'bank_transfer'>('momo_pay');
   const [errorMessage, setErrorMessage] = useState('');
+  const [paymentProofs, setPaymentProofs] = useState<Record<string, string>>({});
+  const [paymentProofErrors, setPaymentProofErrors] = useState<Record<string, string>>({});
+  const [processingProofs, setProcessingProofs] = useState<Record<string, boolean>>({});
 
   const sellerKey = groupedBySeller.map(group => group.businessId).join('|');
 
@@ -132,11 +143,37 @@ export const MultiSellerCartDrawer: React.FC<MultiSellerCartDrawerProps> = ({ on
 
       const res = await api.createOrder(orderPayload);
       clearCart();
+      setPaymentProofs({});
+      setPaymentProofErrors({});
       setOrderSuccess(res.order);
     } catch (err: any) {
       setErrorMessage(err.message || 'Failed to place order.');
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handlePaymentProofChange = async (businessId: string, file?: File) => {
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      setPaymentProofErrors(previous => ({
+        ...previous,
+        [businessId]: 'Please choose an image file (JPG, PNG, or screenshot).',
+      }));
+      return;
+    }
+    setProcessingProofs(previous => ({ ...previous, [businessId]: true }));
+    setPaymentProofErrors(previous => ({ ...previous, [businessId]: '' }));
+    try {
+      const preview = await compressImageFile(file);
+      setPaymentProofs(previous => ({ ...previous, [businessId]: preview }));
+    } catch (err: any) {
+      setPaymentProofErrors(previous => ({
+        ...previous,
+        [businessId]: err.message || 'Could not read that image. Please try another file.',
+      }));
+    } finally {
+      setProcessingProofs(previous => ({ ...previous, [businessId]: false }));
     }
   };
 
@@ -201,11 +238,17 @@ export const MultiSellerCartDrawer: React.FC<MultiSellerCartDrawerProps> = ({ on
               <div className="rounded-lg border border-[#FF6A00]/25 bg-[#FFF3E8] p-3 text-left text-[11px] text-[#555555] space-y-2">
                 <p className="font-bold text-[#222222]">Complete your payment</p>
                 <p>
-                  Wait for the seller to respond, call the seller phone number, or send{' '}
-                  <strong>&quot;Hi&quot;</strong> in a WhatsApp DM so they can confirm your payment.
+                  Pay the seller below, upload your payment screenshot, then send{' '}
+                  <strong>&quot;Hi&quot;</strong> on WhatsApp. Attach the previewed screenshot in the chat
+                  so the seller can confirm your payment.
                 </p>
                 {successPayments.map(payment => {
-                  const link = whatsappLink(payment.whatsappNumber);
+                  const proof = paymentProofs[payment.businessId];
+                  const proofError = paymentProofErrors[payment.businessId];
+                  const isProcessing = Boolean(processingProofs[payment.businessId]);
+                  const link = proof && payment.whatsappNumber
+                    ? whatsappLink(payment.whatsappNumber, paymentWhatsappMessage(orderSuccess, payment.sellerName))
+                    : '';
                   return (
                     <div key={payment.businessId} className="border-t border-[#FF6A00]/20 pt-2">
                       <div className="font-semibold text-[#222222]">{payment.sellerName}</div>
@@ -214,21 +257,67 @@ export const MultiSellerCartDrawer: React.FC<MultiSellerCartDrawerProps> = ({ on
                         <div>Airtel Money USSD / code: {payment.airtelMoneyCode || 'Not set'}</div>
                         <div>Bank Account: {bankSummary(payment) || 'Not set'}</div>
                       </div>
-                      {payment.whatsappNumber && (
-                        <div className="mt-1 flex flex-wrap items-center gap-2">
-                          <span>WhatsApp: {payment.whatsappNumber}</span>
-                          {link && (
-                            <a
-                              href={link}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="font-bold text-[#FF6A00] hover:underline"
-                            >
-                              Send &quot;Hi&quot; on WhatsApp
-                            </a>
-                          )}
-                        </div>
-                      )}
+                      <div className="mt-2 space-y-2">
+                        <label className="block font-semibold text-[#222222]">
+                          Payment screenshot (required)
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={event => {
+                              void handlePaymentProofChange(payment.businessId, event.target.files?.[0]);
+                              event.target.value = '';
+                            }}
+                            className="mt-1 block w-full text-[10px] text-[#555555] file:mr-2 file:rounded file:border-0 file:bg-[#FF6A00] file:px-2 file:py-1 file:text-[10px] file:font-bold file:text-white"
+                          />
+                        </label>
+                        {isProcessing && (
+                          <p className="text-[10px] text-[#666666]">Reading image...</p>
+                        )}
+                        {proofError && (
+                          <p className="text-[10px] text-[#D92D20]">{proofError}</p>
+                        )}
+                        {!proof && !proofError && !isProcessing && (
+                          <p className="text-[10px] text-[#B54708]">
+                            Upload an image screenshot to unlock WhatsApp for this seller.
+                          </p>
+                        )}
+                        {proof && (
+                          <div className="flex items-start gap-2">
+                            <img
+                              src={proof}
+                              alt={`Payment screenshot for ${payment.sellerName}`}
+                              className="h-20 w-20 rounded border border-[#E5E5E5] object-cover"
+                            />
+                            <span className="text-[10px] font-semibold text-[#22A06B]">
+                              Screenshot ready — attach it in the WhatsApp chat.
+                            </span>
+                          </div>
+                        )}
+                        {payment.whatsappNumber && (
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span>WhatsApp: {payment.whatsappNumber}</span>
+                            {link ? (
+                              <a
+                                href={link}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="font-bold text-[#FF6A00] hover:underline"
+                              >
+                                Send &quot;Hi&quot; on WhatsApp
+                              </a>
+                            ) : (
+                              <button
+                                type="button"
+                                disabled
+                                aria-disabled
+                                className="cursor-not-allowed font-bold text-[#999999]"
+                              >
+                                Send &quot;Hi&quot; on WhatsApp
+                              </button>
+                            )}
+                          </div>
+                        )}
+                      </div>
                     </div>
                   );
                 })}
