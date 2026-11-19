@@ -160,12 +160,40 @@ router.post('/uploads', asyncHandler(async (req, res) => {
   }
 }));
 
+function sanitizeDbError(error: unknown): { code?: string; message: string } {
+  const err = error as { code?: unknown; message?: unknown } | null | undefined;
+  const code = typeof err?.code === 'string' ? err.code : undefined;
+  let message = error instanceof Error ? error.message : String(error ?? 'Unknown database error');
+  message = message
+    .replace(/postgres(?:ql)?:\/\/[^\s"']+/gi, '[redacted-url]')
+    .replace(/password=[^\s&"']+/gi, 'password=[redacted]')
+    .replace(/:\/\/[^@\s/]+@/g, '://[redacted]@');
+  if (message.length > 180) message = `${message.slice(0, 180)}...`;
+  return { ...(code ? { code } : {}), message: message || 'Database connectivity check failed.' };
+}
+
 router.get('/health', asyncHandler(async (_req, res) => {
   const store = getStore();
+  let database: { ok: boolean; code?: string; message?: string } = { ok: true };
+
+  if (store.kind === 'postgres') {
+    try {
+      await (store as unknown as { query: (sql: string) => Promise<unknown> }).query('SELECT 1');
+      database = { ok: true, message: 'Connected' };
+    } catch (error) {
+      database = { ok: false, ...sanitizeDbError(error) };
+    }
+  } else if (store.kind === 'memory' && config.databaseUrl) {
+    database = { ok: false, message: 'Configured database unavailable; using in-memory store.' };
+  } else {
+    database = { ok: true, message: 'Using in-memory store (no database configured).' };
+  }
+
   res.json({
     success: true,
-    status: 'ok',
+    status: database.ok ? 'ok' : 'degraded',
     storage: store.kind,
+    database,
     emailDelivery: isEmailDeliveryConfigured(),
     blobStorage: Boolean(config.blobToken),
     timestamp: new Date().toISOString(),

@@ -195,25 +195,42 @@ export class PostgresStore implements Store {
   constructor(connectionString: string) {
     const isServerless = Boolean(process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME);
     let hostname = '';
+    let port = '';
     let sslMode = '';
+    let isPooler = false;
     try {
       const url = new URL(connectionString);
       hostname = url.hostname.toLowerCase();
+      port = url.port || '5432';
       sslMode = (url.searchParams.get('sslmode') || '').toLowerCase();
+      isPooler = port === '6543'
+        || hostname.includes('pooler')
+        || hostname.includes('pgbouncer')
+        || url.searchParams.get('pgbouncer') === 'true'
+        || url.searchParams.get('pool_mode') === 'transaction';
     } catch {
       hostname = '';
+      port = '';
       sslMode = '';
+      isPooler = false;
     }
     const isLocal = hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1' || hostname === '[::1]';
     const sslDisabled = sslMode === 'disable';
     this.pool = new Pool({
       connectionString,
-      max: isServerless ? 1 : 5,
-      idleTimeoutMillis: isServerless ? 5_000 : 30_000,
+      // Supabase transaction pooler (PgBouncer, port 6543) and Vercel serverless
+      // require a single client-side connection. pg uses unnamed prepared
+      // statements by default (no named statements in this codebase), which is
+      // compatible with transaction pooling.
+      max: (isServerless || isPooler) ? 1 : 5,
+      idleTimeoutMillis: (isServerless || isPooler) ? 5_000 : 30_000,
       connectionTimeoutMillis: 15_000,
-      allowExitOnIdle: isServerless,
+      allowExitOnIdle: isServerless || isPooler,
       keepAlive: true,
       keepAliveInitialDelayMillis: 10_000,
+      // SSL is required for Supabase/hosted Postgres. Enable by default for
+      // remote hosts when sslmode is omitted or not explicitly disabled so
+      // pooler connections work cleanly without leaking credentials.
       ssl: isLocal || sslDisabled ? undefined : { rejectUnauthorized: false },
     });
   }
