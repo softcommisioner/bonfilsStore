@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { getStore } from '../db/index.js';
-import type { Order, OrderItem } from '../../src/types.js';
+import type { Order, OrderItem, SellerPaymentInfo } from '../../src/types.js';
 import { logActivity, pushNotification, requireAuth } from '../middleware.js';
 import { newId, writeRateLimiter, clientKey } from '../security.js';
 import { sendEmail } from '../services/email.js';
@@ -77,6 +77,21 @@ router.post('/', requireAuth, asyncHandler(async (req, res) => {
   const shippingFee = subtotal >= FREE_SHIPPING_THRESHOLD ? 0 : SHIPPING_FEE;
   const total = subtotal + shippingFee;
 
+  const settings = await store.getSettings();
+  const sellerIds = Array.from(new Set(items.map(item => item.businessId)));
+  const paymentCodes: SellerPaymentInfo[] = [];
+  for (const businessId of sellerIds) {
+    const business = await store.findBusiness(businessId);
+    const itemSellerName = items.find(item => item.businessId === businessId)?.sellerName;
+    paymentCodes.push({
+      businessId,
+      sellerName: business?.name || itemSellerName || 'Seller',
+      momoPayCode: business?.momoPayCode || '',
+      airtelMoneyCode: business?.airtelMoneyCode || '',
+      whatsappNumber: business?.whatsappNumber || business?.phone || '',
+    });
+  }
+
   const sequence = await store.nextCounter('order', 1000);
   const now = new Date().toISOString();
   const order: Order = {
@@ -103,6 +118,9 @@ router.post('/', requireAuth, asyncHandler(async (req, res) => {
       ? payload.paymentMethod
       : 'mobile_money',
     paymentStatus: payload.paymentMethod === 'card' ? 'paid' : 'pending',
+    currency: 'USD',
+    usdToRwfRate: settings.usdToRwfRate,
+    paymentCodes,
     createdAt: now,
     updatedAt: now,
   };
@@ -116,7 +134,6 @@ router.post('/', requireAuth, asyncHandler(async (req, res) => {
     type: 'order',
   });
 
-  const sellerIds = Array.from(new Set(items.map(item => item.businessId)));
   for (const businessId of sellerIds) {
     const business = await store.findBusiness(businessId);
     if (business?.ownerId) {

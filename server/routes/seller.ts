@@ -224,7 +224,10 @@ router.put('/profile', asyncHandler(async (req, res) => {
     return res.status(404).json({ error: 'No store is linked to your account yet.' });
   }
   const patch: Record<string, unknown> = {};
-  for (const field of ['name', 'description', 'phone', 'email', 'country', 'city', 'shippingTerms'] as const) {
+  for (const field of [
+    'name', 'description', 'phone', 'email', 'country', 'city', 'shippingTerms',
+    'momoPayCode', 'airtelMoneyCode', 'whatsappNumber',
+  ] as const) {
     if (req.body?.[field] !== undefined) patch[field] = String(req.body[field]).trim();
   }
   const updated = await store.updateBusiness(business.id, patch as never);

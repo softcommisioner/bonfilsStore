@@ -1,8 +1,12 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { X, ShoppingBag, Trash2, Plus, Minus, ArrowRight, Store, CheckCircle } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../services/api';
+import {
+  DEFAULT_USD_TO_RWF_RATE, formatRwf, normalizeUsdToRwfRate, whatsappLink,
+  type SellerPaymentInfo,
+} from '../types';
 
 interface MultiSellerCartDrawerProps {
   onNavigate: (route: string) => void;
@@ -18,6 +22,8 @@ export const MultiSellerCartDrawer: React.FC<MultiSellerCartDrawerProps> = ({ on
   const [isCheckingOut, setIsCheckingOut] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [orderSuccess, setOrderSuccess] = useState<any | null>(null);
+  const [usdToRwfRate, setUsdToRwfRate] = useState(DEFAULT_USD_TO_RWF_RATE);
+  const [sellerPayments, setSellerPayments] = useState<SellerPaymentInfo[]>([]);
 
   // Checkout address state
   const [fullName, setFullName] = useState(user?.name || '');
@@ -27,7 +33,56 @@ export const MultiSellerCartDrawer: React.FC<MultiSellerCartDrawerProps> = ({ on
   const [paymentMethod, setPaymentMethod] = useState<'mobile_money' | 'card' | 'cash_on_delivery'>('mobile_money');
   const [errorMessage, setErrorMessage] = useState('');
 
+  const sellerKey = groupedBySeller.map(group => group.businessId).join('|');
+
+  useEffect(() => {
+    if (!isCartOpen) return;
+    let cancelled = false;
+    api.getPublicSettings()
+      .then(({ settings }) => {
+        if (!cancelled) setUsdToRwfRate(normalizeUsdToRwfRate(settings.usdToRwfRate));
+      })
+      .catch(() => undefined);
+    return () => { cancelled = true; };
+  }, [isCartOpen]);
+
+  useEffect(() => {
+    if (!isCheckingOut || !sellerKey) return;
+    let cancelled = false;
+    const ids = Array.from(new Set(sellerKey.split('|').filter(Boolean)));
+    Promise.all(ids.map(async (businessId) => {
+      const group = groupedBySeller.find(item => item.businessId === businessId);
+      const fallbackName = group?.sellerName || 'Seller';
+      try {
+        const { business } = await api.getSeller(businessId);
+        return {
+          businessId,
+          sellerName: business.name || fallbackName,
+          momoPayCode: business.momoPayCode || '',
+          airtelMoneyCode: business.airtelMoneyCode || '',
+          whatsappNumber: business.whatsappNumber || business.phone || '',
+        };
+      } catch {
+        return {
+          businessId,
+          sellerName: fallbackName,
+          momoPayCode: '',
+          airtelMoneyCode: '',
+          whatsappNumber: '',
+        };
+      }
+    })).then(list => {
+      if (!cancelled) setSellerPayments(list);
+    });
+    return () => { cancelled = true; };
+  }, [isCheckingOut, sellerKey]);
+
   if (!isCartOpen) return null;
+
+  const successRate = normalizeUsdToRwfRate(orderSuccess?.usdToRwfRate ?? usdToRwfRate);
+  const successPayments: SellerPaymentInfo[] = Array.isArray(orderSuccess?.paymentCodes)
+    ? orderSuccess.paymentCodes
+    : sellerPayments;
 
   const handleCheckoutSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -102,15 +157,22 @@ export const MultiSellerCartDrawer: React.FC<MultiSellerCartDrawerProps> = ({ on
               <div className="w-16 h-16 bg-emerald-50 text-[#22A06B] rounded-full flex items-center justify-center mx-auto">
                 <CheckCircle className="w-10 h-10" />
               </div>
-              <h4 className="text-lg font-bold text-[#222222]">Payment Successful!</h4>
+              <h4 className="text-lg font-bold text-[#222222]">Order Placed</h4>
               <p className="text-xs text-[#666666] leading-relaxed">
-                Order <strong>{orderSuccess.orderNumber}</strong> has been routed to <strong>{orderSuccess.items.length} seller(s)</strong>. Confirmation email has been sent.
+                Order <strong>{orderSuccess.orderNumber}</strong> has been routed to{' '}
+                <strong>{orderSuccess.items.length} seller(s)</strong>. Confirmation email has been sent.
               </p>
 
               <div className="bg-[#F7F7F7] p-3 rounded-lg text-left text-xs space-y-1 my-4">
                 <div className="flex justify-between">
-                  <span className="text-[#666666]">Total Paid:</span>
+                  <span className="text-[#666666]">Order Total (USD):</span>
                   <span className="font-bold text-[#222222] tabular-nums">${orderSuccess.total.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-[#666666]">Order Total (RWF):</span>
+                  <span className="font-bold text-[#FF6A00] tabular-nums">
+                    {formatRwf(orderSuccess.total, successRate)}
+                  </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-[#666666]">Items count:</span>
@@ -120,6 +182,44 @@ export const MultiSellerCartDrawer: React.FC<MultiSellerCartDrawerProps> = ({ on
                   <span className="text-[#666666]">Delivery to:</span>
                   <span className="font-medium text-[#222222]">{orderSuccess.shippingAddress.city}</span>
                 </div>
+              </div>
+
+              <div className="rounded-lg border border-[#FF6A00]/25 bg-[#FFF3E8] p-3 text-left text-[11px] text-[#555555] space-y-2">
+                <p className="font-bold text-[#222222]">Complete your payment</p>
+                <p>
+                  Wait for the seller to respond, call the seller phone number, or send{' '}
+                  <strong>&quot;Hi&quot;</strong> in a WhatsApp DM so they can confirm your payment.
+                </p>
+                {successPayments.map(payment => {
+                  const link = whatsappLink(payment.whatsappNumber);
+                  return (
+                    <div key={payment.businessId} className="border-t border-[#FF6A00]/20 pt-2">
+                      <div className="font-semibold text-[#222222]">{payment.sellerName}</div>
+                      {(payment.momoPayCode || payment.airtelMoneyCode) && (
+                        <div>
+                          {payment.momoPayCode && <span>MTN MoMo Pay: {payment.momoPayCode}</span>}
+                          {payment.momoPayCode && payment.airtelMoneyCode && <span> · </span>}
+                          {payment.airtelMoneyCode && <span>Airtel Money: {payment.airtelMoneyCode}</span>}
+                        </div>
+                      )}
+                      {payment.whatsappNumber && (
+                        <div className="mt-1 flex flex-wrap items-center gap-2">
+                          <span>WhatsApp: {payment.whatsappNumber}</span>
+                          {link && (
+                            <a
+                              href={link}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="font-bold text-[#FF6A00] hover:underline"
+                            >
+                              Send &quot;Hi&quot; on WhatsApp
+                            </a>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
 
               <div className="pt-2 space-y-2">
@@ -251,18 +351,54 @@ export const MultiSellerCartDrawer: React.FC<MultiSellerCartDrawerProps> = ({ on
                 </div>
               </div>
 
+              {/* Local currency and seller payment codes */}
+              <div className="p-3 rounded-lg text-xs space-y-2 border border-[#FF6A00]/25 bg-[#FFF3E8]">
+                <div className="flex justify-between">
+                  <span className="text-[#555555]">Exchange rate</span>
+                  <span className="font-semibold text-[#222222] tabular-nums">
+                    1 USD = {usdToRwfRate.toLocaleString('en-US')} RWF
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-[#555555]">You will pay</span>
+                  <span className="font-bold text-[#FF6A00] tabular-nums">{formatRwf(total, usdToRwfRate)}</span>
+                </div>
+
+                {paymentMethod === 'mobile_money' && sellerPayments.length > 0 && (
+                  <div className="border-t border-[#FF6A00]/20 pt-2 space-y-1.5">
+                    <div className="font-bold text-[#222222]">Pay each seller directly</div>
+                    {sellerPayments.map(payment => (
+                      <div key={payment.businessId} className="text-[11px] text-[#555555]">
+                        <span className="font-semibold text-[#222222]">{payment.sellerName}:</span>{' '}
+                        {payment.momoPayCode ? `MTN MoMo Pay ${payment.momoPayCode}` : ''}
+                        {payment.momoPayCode && payment.airtelMoneyCode ? ' · ' : ''}
+                        {payment.airtelMoneyCode ? `Airtel Money ${payment.airtelMoneyCode}` : ''}
+                        {!payment.momoPayCode && !payment.airtelMoneyCode
+                          ? 'No code added yet — contact the seller on WhatsApp.'
+                          : ''}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
               {/* Multi-Seller Package Summary */}
               <div className="p-3 bg-[#F7F7F7] rounded-lg text-xs space-y-1.5 border border-[#E5E5E5]">
                 <div className="font-bold text-[#222222] mb-1">Order Summary ({groupedBySeller.length} Seller Packages)</div>
                 {groupedBySeller.map(group => (
                   <div key={group.businessId} className="flex justify-between text-[#666666] text-[11px]">
                     <span>{group.sellerName} ({group.items.length} items):</span>
-                    <span className="tabular-nums font-medium text-[#222222]">${group.sellerSubtotal.toFixed(2)}</span>
+                    <span className="tabular-nums font-medium text-[#222222]">
+                      ${group.sellerSubtotal.toFixed(2)} · {formatRwf(group.sellerSubtotal, usdToRwfRate)}
+                    </span>
                   </div>
                 ))}
                 <div className="border-t border-[#E5E5E5] pt-1.5 flex justify-between font-bold text-sm text-[#FF6A00]">
                   <span>Total Amount:</span>
-                  <span className="tabular-nums">${total.toFixed(2)}</span>
+                  <span className="tabular-nums text-right">
+                    ${total.toFixed(2)}
+                    <span className="block text-[11px]">{formatRwf(total, usdToRwfRate)}</span>
+                  </span>
                 </div>
               </div>
 
@@ -279,7 +415,7 @@ export const MultiSellerCartDrawer: React.FC<MultiSellerCartDrawerProps> = ({ on
                   disabled={isSubmitting}
                   className="flex-1 py-2.5 bg-[#FF6A00] text-white text-xs font-bold rounded-lg hover:bg-[#FF8A00] transition-colors cursor-pointer flex items-center justify-center gap-1.5"
                 >
-                  {isSubmitting ? 'Processing...' : `Confirm & Pay $${total.toFixed(2)}`}
+                  {isSubmitting ? 'Processing...' : `Place Order · ${formatRwf(total, usdToRwfRate)}`}
                 </button>
               </div>
             </form>
@@ -316,7 +452,7 @@ export const MultiSellerCartDrawer: React.FC<MultiSellerCartDrawerProps> = ({ on
                       <span className="text-xs font-bold text-[#222222]">{group.sellerName}</span>
                     </div>
                     <span className="text-[11px] font-semibold text-[#666666] tabular-nums">
-                      ${group.sellerSubtotal.toFixed(2)}
+                      ${group.sellerSubtotal.toFixed(2)} · {formatRwf(group.sellerSubtotal, usdToRwfRate)}
                     </span>
                   </div>
 
@@ -335,7 +471,10 @@ export const MultiSellerCartDrawer: React.FC<MultiSellerCartDrawerProps> = ({ on
                             {item.product.title}
                           </h4>
                           <div className="text-xs font-bold text-[#FF6A00] tabular-nums mt-0.5">
-                            ${item.product.price.toFixed(2)}
+                            ${item.product.price.toFixed(2)}{' '}
+                            <span className="text-[10px] font-medium text-[#888888]">
+                              ({formatRwf(item.product.price, usdToRwfRate)})
+                            </span>
                           </div>
                           
                           {/* Stepper & Remove */}
@@ -390,8 +529,14 @@ export const MultiSellerCartDrawer: React.FC<MultiSellerCartDrawerProps> = ({ on
               </div>
               <div className="flex justify-between pt-1 border-t border-[#E5E5E5] text-sm font-bold text-[#222222]">
                 <span>Order Total:</span>
-                <span className="text-[#FF6A00] tabular-nums">${total.toFixed(2)}</span>
+                <span className="text-[#FF6A00] tabular-nums text-right">
+                  ${total.toFixed(2)}
+                  <span className="block text-[11px]">{formatRwf(total, usdToRwfRate)}</span>
+                </span>
               </div>
+              <p className="pt-1 text-[10px] text-[#888888]">
+                Converted at 1 USD = {usdToRwfRate.toLocaleString('en-US')} RWF. Sellers share payment codes before you confirm.
+              </p>
             </div>
 
             <button

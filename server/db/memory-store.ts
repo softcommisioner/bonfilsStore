@@ -1,8 +1,8 @@
 import fs from 'fs';
 import path from 'path';
 import {
-  normalizeEstimatedDeliveryDays, normalizeFulfillmentStatus,
-  type Business, type Product, type Order, type ChinaRequest, type ShippingOrder, type Category,
+  normalizeAppSettings, normalizeEstimatedDeliveryDays, normalizeFulfillmentStatus,
+  type AppSettings, type Business, type Product, type Order, type ChinaRequest, type ShippingOrder, type Category,
   type AdminActivityLog, type EmailRecord, type NotificationItem
 } from '../../src/types.js';
 import {
@@ -17,6 +17,7 @@ interface MemoryTables {
   sessions: SessionRecord[];
   otps: OtpRecord[];
   businesses: Business[];
+  settings: AppSettings;
   categories: Category[];
   products: Product[];
   orders: Order[];
@@ -56,9 +57,9 @@ export class MemoryStore implements Store {
   readonly kind = 'memory' as const;
 
   private tables: MemoryTables = {
-    users: [], sessions: [], otps: [], businesses: [], categories: [], products: [],
-    orders: [], chinaRequests: [], shippingOrders: [], activityLogs: [], notifications: [],
-    emails: [], counters: {}, media: new Map(),
+    users: [], sessions: [], otps: [], businesses: [], settings: normalizeAppSettings({}),
+    categories: [], products: [], orders: [], chinaRequests: [], shippingOrders: [],
+    activityLogs: [], notifications: [], emails: [], counters: {}, media: new Map(),
   };
 
   private snapshotPath: string | null = null;
@@ -78,6 +79,7 @@ export class MemoryStore implements Store {
           sessions: raw.sessions || [],
           otps: raw.otps || [],
           businesses: raw.businesses || [],
+          settings: normalizeAppSettings(raw.settings),
           categories: raw.categories || [],
           products: (raw.products || []).map((product: Product) => ({
             ...product,
@@ -247,6 +249,20 @@ export class MemoryStore implements Store {
     this.tables.businesses[index] = { ...this.tables.businesses[index], ...patch };
     this.flush();
     return clone(this.tables.businesses[index]);
+  }
+
+  async getSettings(): Promise<AppSettings> {
+    return clone(this.tables.settings);
+  }
+
+  async updateSettings(patch: Partial<AppSettings>): Promise<AppSettings> {
+    this.tables.settings = normalizeAppSettings({
+      ...this.tables.settings,
+      ...patch,
+      updatedAt: new Date().toISOString(),
+    });
+    this.flush();
+    return clone(this.tables.settings);
   }
 
   async listCategories(includeInactive = false): Promise<Category[]> {

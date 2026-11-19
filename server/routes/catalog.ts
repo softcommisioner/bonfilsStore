@@ -29,6 +29,11 @@ function parseProductQuery(query: Record<string, unknown>) {
   };
 }
 
+router.get('/settings', asyncHandler(async (_req, res) => {
+  const settings = await getStore().getSettings();
+  res.json({ settings });
+}));
+
 router.get('/products', asyncHandler(async (req, res) => {
   const store = getStore();
   const result = await store.listProducts(parseProductQuery(req.query as Record<string, unknown>));

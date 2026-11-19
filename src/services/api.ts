@@ -1,6 +1,6 @@
 import type {
   User, Business, Product, Order, ChinaRequest, Quotation, ShippingOrder,
-  AdminActivityLog, NotificationItem, Category, AdminStats, Paginated,
+  AdminActivityLog, NotificationItem, Category, AdminStats, Paginated, AppSettings,
 } from '../types';
 
 const TOKEN_KEY = 'bonfils_store_auth_token';
@@ -371,6 +371,17 @@ export const api = {
     return data;
   },
 
+  async getAdminSettings() {
+    return this.adminRequest<{ settings: AppSettings }>('/api/admin/settings');
+  },
+
+  async updateAdminSettings(payload: { usdToRwfRate: number }) {
+    return this.adminRequest<{ success: boolean; settings: AppSettings }>('/api/admin/settings', {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    });
+  },
+
   async uploadImage(dataUrl: string, filename = 'image.png', folder = 'products') {
     return this.request<{ success: boolean; url: string; storage: string }>('/api/uploads', {
       method: 'POST',
@@ -386,6 +397,10 @@ export const api = {
   },
 
   // ------------------------------------------------------------------ catalog
+  async getPublicSettings() {
+    return this.request<{ settings: AppSettings }>('/api/settings');
+  },
+
   async getProducts(params: Record<string, string> = {}) {
     const query = new URLSearchParams(params).toString();
     return this.request<ProductPageResponse>(`/api/products?${query}`);

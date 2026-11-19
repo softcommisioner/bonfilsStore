@@ -1,7 +1,8 @@
 import { Pool, type PoolClient } from 'pg';
 import {
-  normalizeEstimatedDeliveryDays, normalizeFulfillmentStatus,
-  type Business, type Product, type Order, type ChinaRequest, type ShippingOrder, type Category,
+  normalizeAppSettings, normalizeEstimatedDeliveryDays, normalizeFulfillmentStatus,
+  normalizeUsdToRwfRate,
+  type AppSettings, type Business, type Product, type Order, type ChinaRequest, type ShippingOrder, type Category,
   type AdminActivityLog, type EmailRecord, type NotificationItem
 } from '../../src/types.js';
 import {
@@ -35,6 +36,13 @@ function mapUser(row: Row): UserRecord {
   };
 }
 
+function mapSettings(row: Row): AppSettings {
+  return normalizeAppSettings({
+    usdToRwfRate: row.usd_to_rwf_rate,
+    updatedAt: row.updated_at ? ts(row.updated_at) : '',
+  });
+}
+
 function mapBusiness(row: Row): Business {
   return {
     id: row.id,
@@ -53,6 +61,9 @@ function mapBusiness(row: Row): Business {
     isVerified: row.is_verified,
     status: row.status,
     shippingTerms: row.shipping_terms,
+    momoPayCode: row.momo_pay_code || undefined,
+    airtelMoneyCode: row.airtel_money_code || undefined,
+    whatsappNumber: row.whatsapp_number || undefined,
     createdAt: ts(row.created_at),
   };
 }
@@ -117,6 +128,11 @@ function mapOrder(row: Row): Order {
     shippingAddress: row.shipping_address || {},
     paymentMethod: row.payment_method,
     paymentStatus: row.payment_status,
+    currency: row.currency || undefined,
+    usdToRwfRate: row.usd_to_rwf_rate === null || row.usd_to_rwf_rate === undefined
+      ? undefined
+      : normalizeUsdToRwfRate(row.usd_to_rwf_rate),
+    paymentCodes: row.payment_codes || undefined,
     createdAt: ts(row.created_at),
     updatedAt: ts(row.updated_at),
   };
@@ -385,13 +401,14 @@ export class PostgresStore implements Store {
 
   async createBusiness(business: Business): Promise<Business> {
     const rows = await this.query(
-      `INSERT INTO businesses (id, owner_id, name, type, description, phone, email, country, city, rating, reviews_count, total_products, total_sales, is_verified, status, shipping_terms, created_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17) RETURNING *`,
+      `INSERT INTO businesses (id, owner_id, name, type, description, phone, email, country, city, rating, reviews_count, total_products, total_sales, is_verified, status, shipping_terms, momo_pay_code, airtel_money_code, whatsapp_number, created_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20) RETURNING *`,
       [
         business.id, business.ownerId || null, business.name, business.type, business.description,
         business.phone, business.email, business.country, business.city, business.rating,
         business.reviewsCount, business.totalProducts, business.totalSales, business.isVerified,
-        business.status, business.shippingTerms, business.createdAt,
+        business.status, business.shippingTerms, business.momoPayCode || null,
+        business.airtelMoneyCode || null, business.whatsappNumber || null, business.createdAt,
       ],
     );
     return mapBusiness(rows[0]);
@@ -402,7 +419,8 @@ export class PostgresStore implements Store {
       ownerId: 'owner_id', name: 'name', type: 'type', description: 'description', phone: 'phone',
       email: 'email', country: 'country', city: 'city', rating: 'rating', reviewsCount: 'reviews_count',
       totalProducts: 'total_products', totalSales: 'total_sales', isVerified: 'is_verified',
-      status: 'status', shippingTerms: 'shipping_terms',
+      status: 'status', shippingTerms: 'shipping_terms', momoPayCode: 'momo_pay_code',
+      airtelMoneyCode: 'airtel_money_code', whatsappNumber: 'whatsapp_number',
     };
     const sets: string[] = [];
     const values: any[] = [];
@@ -416,6 +434,24 @@ export class PostgresStore implements Store {
     values.push(id);
     const rows = await this.query(`UPDATE businesses SET ${sets.join(', ')} WHERE id = $${values.length} RETURNING *`, values);
     return rows[0] ? mapBusiness(rows[0]) : null;
+  }
+
+  async getSettings(): Promise<AppSettings> {
+    const rows = await this.query('SELECT * FROM app_settings WHERE id = $1 LIMIT 1', ['global']);
+    return rows[0] ? mapSettings(rows[0]) : normalizeAppSettings({});
+  }
+
+  async updateSettings(patch: Partial<AppSettings>): Promise<AppSettings> {
+    const current = await this.getSettings();
+    const next = normalizeAppSettings({ ...current, ...patch, updatedAt: new Date().toISOString() });
+    const rows = await this.query(
+      `INSERT INTO app_settings (id, usd_to_rwf_rate, updated_at)
+       VALUES ('global', $1, $2)
+       ON CONFLICT (id) DO UPDATE SET usd_to_rwf_rate = EXCLUDED.usd_to_rwf_rate, updated_at = EXCLUDED.updated_at
+       RETURNING *`,
+      [next.usdToRwfRate, next.updatedAt],
+    );
+    return rows[0] ? mapSettings(rows[0]) : next;
   }
 
   async listCategories(includeInactive = false): Promise<Category[]> {
@@ -652,13 +688,15 @@ export class PostgresStore implements Store {
   async updateOrder(id: string, patch: Partial<Order>): Promise<Order | null> {
     const map: Record<string, string> = {
       status: 'status', paymentStatus: 'payment_status', items: 'items', total: 'total',
-      subtotal: 'subtotal', shippingFee: 'shipping_fee',
+      subtotal: 'subtotal', shippingFee: 'shipping_fee', currency: 'currency',
+      usdToRwfRate: 'usd_to_rwf_rate', paymentCodes: 'payment_codes',
     };
+    const jsonFields = new Set(['items', 'paymentCodes']);
     const sets: string[] = [];
     const values: any[] = [];
     for (const [key, column] of Object.entries(map)) {
       if ((patch as any)[key] !== undefined) {
-        values.push(key === 'items' ? JSON.stringify((patch as any)[key]) : (patch as any)[key]);
+        values.push(jsonFields.has(key) ? JSON.stringify((patch as any)[key]) : (patch as any)[key]);
         sets.push(`${column} = $${values.length}`);
       }
     }
@@ -686,12 +724,13 @@ export class PostgresStore implements Store {
         ]);
       }
       const inserted = await client.query(
-        `INSERT INTO orders (id, order_number, customer_id, customer_name, customer_email, customer_phone, items, subtotal, shipping_fee, total, status, shipping_address, payment_method, payment_status, created_at, updated_at)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16) RETURNING *`,
+        `INSERT INTO orders (id, order_number, customer_id, customer_name, customer_email, customer_phone, items, subtotal, shipping_fee, total, status, shipping_address, payment_method, payment_status, currency, usd_to_rwf_rate, payment_codes, created_at, updated_at)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19) RETURNING *`,
         [
           order.id, order.orderNumber, order.customerId, order.customerName, order.customerEmail,
           order.customerPhone, JSON.stringify(order.items), order.subtotal, order.shippingFee, order.total,
           order.status, JSON.stringify(order.shippingAddress), order.paymentMethod, order.paymentStatus,
+          order.currency || 'USD', order.usdToRwfRate || null, JSON.stringify(order.paymentCodes || []),
           order.createdAt, order.updatedAt,
         ],
       );

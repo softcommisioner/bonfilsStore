@@ -32,7 +32,51 @@ export interface Business {
   isVerified: boolean;
   status: 'active' | 'suspended';
   shippingTerms: string;
+  momoPayCode?: string;
+  airtelMoneyCode?: string;
+  whatsappNumber?: string;
   createdAt: string;
+}
+
+export const DEFAULT_USD_TO_RWF_RATE = 1350;
+
+export function normalizeUsdToRwfRate(value: unknown): number {
+  const raw = typeof value === 'number' ? value : Number(String(value ?? '').replace(/,/g, '').trim());
+  if (!Number.isFinite(raw) || raw <= 0) return DEFAULT_USD_TO_RWF_RATE;
+  return Math.min(1_000_000, Math.round(raw * 100) / 100);
+}
+
+export interface AppSettings {
+  usdToRwfRate: number;
+  updatedAt: string;
+}
+
+export function normalizeAppSettings(value: unknown): AppSettings {
+  const raw = value && typeof value === 'object'
+    ? value as { usdToRwfRate?: unknown; updatedAt?: unknown }
+    : {};
+  return {
+    usdToRwfRate: normalizeUsdToRwfRate(raw.usdToRwfRate),
+    updatedAt: typeof raw.updatedAt === 'string' ? raw.updatedAt : '',
+  };
+}
+
+export function formatRwf(usdAmount: number, rate: number): string {
+  const converted = Math.round(usdAmount * normalizeUsdToRwfRate(rate));
+  return `${converted.toLocaleString('en-US')} RWF`;
+}
+
+export function whatsappLink(number: string, message = 'Hi'): string {
+  const digits = String(number || '').replace(/\D/g, '');
+  return digits ? `https://wa.me/${digits}?text=${encodeURIComponent(message)}` : '';
+}
+
+export interface SellerPaymentInfo {
+  businessId: string;
+  sellerName: string;
+  momoPayCode: string;
+  airtelMoneyCode: string;
+  whatsappNumber: string;
 }
 
 export type ProductFulfillmentStatus = 'available_now' | 'requires_shipping_import';
@@ -133,6 +177,9 @@ export interface Order {
   };
   paymentMethod: 'card' | 'mobile_money' | 'bank_transfer' | 'cash_on_delivery';
   paymentStatus: 'paid' | 'pending';
+  currency?: 'USD' | 'RWF';
+  usdToRwfRate?: number;
+  paymentCodes?: SellerPaymentInfo[];
   createdAt: string;
   updatedAt: string;
 }

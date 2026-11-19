@@ -1,6 +1,6 @@
 import type {
   User, Business, Product, ProductFulfillmentStatus, Order, ChinaRequest, ShippingOrder,
-  AdminActivityLog, EmailRecord, NotificationItem, Category
+  AdminActivityLog, EmailRecord, NotificationItem, Category, AppSettings
 } from '../../src/types.js';
 
 export type UserRecord = User & { passwordHash: string; passwordSalt: string };
@@ -112,6 +112,9 @@ export interface Store {
   findBusinessByOwner(ownerId: string): Promise<Business | null>;
   createBusiness(business: Business): Promise<Business>;
   updateBusiness(id: string, patch: Partial<Business>): Promise<Business | null>;
+
+  getSettings(): Promise<AppSettings>;
+  updateSettings(patch: Partial<AppSettings>): Promise<AppSettings>;
 
   listCategories(includeInactive?: boolean): Promise<Category[]>;
   findCategoryByName(name: string): Promise<Category | null>;

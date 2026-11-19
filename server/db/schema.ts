@@ -59,8 +59,23 @@ CREATE TABLE IF NOT EXISTS businesses (
   is_verified    BOOLEAN NOT NULL DEFAULT FALSE,
   status         TEXT NOT NULL DEFAULT 'active',
   shipping_terms TEXT NOT NULL DEFAULT '',
+  momo_pay_code  TEXT,
+  airtel_money_code TEXT,
+  whatsapp_number TEXT,
   created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+ALTER TABLE businesses ADD COLUMN IF NOT EXISTS momo_pay_code TEXT;
+ALTER TABLE businesses ADD COLUMN IF NOT EXISTS airtel_money_code TEXT;
+ALTER TABLE businesses ADD COLUMN IF NOT EXISTS whatsapp_number TEXT;
+
+CREATE TABLE IF NOT EXISTS app_settings (
+  id               TEXT PRIMARY KEY DEFAULT 'global',
+  usd_to_rwf_rate  NUMERIC(12,2) NOT NULL DEFAULT 1350,
+  updated_at       TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+INSERT INTO app_settings (id, usd_to_rwf_rate)
+VALUES ('global', 1350)
+ON CONFLICT (id) DO NOTHING;
 
 CREATE TABLE IF NOT EXISTS categories (
   id          TEXT PRIMARY KEY,
@@ -129,9 +144,15 @@ CREATE TABLE IF NOT EXISTS orders (
   shipping_address JSONB NOT NULL DEFAULT '{}'::JSONB,
   payment_method   TEXT NOT NULL DEFAULT 'mobile_money',
   payment_status   TEXT NOT NULL DEFAULT 'pending',
+  currency         TEXT NOT NULL DEFAULT 'USD',
+  usd_to_rwf_rate  NUMERIC(12,2),
+  payment_codes    JSONB NOT NULL DEFAULT '[]'::JSONB,
   created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at       TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS currency TEXT NOT NULL DEFAULT 'USD';
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS usd_to_rwf_rate NUMERIC(12,2);
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_codes JSONB NOT NULL DEFAULT '[]'::JSONB;
 CREATE INDEX IF NOT EXISTS orders_customer_idx ON orders (customer_id);
 CREATE INDEX IF NOT EXISTS orders_created_idx ON orders (created_at DESC);
 CREATE INDEX IF NOT EXISTS orders_status_idx ON orders (status);

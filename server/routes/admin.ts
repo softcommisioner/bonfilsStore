@@ -89,6 +89,27 @@ router.get('/session', requireAdmin, asyncHandler(async (req, res) => {
   res.json({ success: true, user: publicUser(req.user!) });
 }));
 
+router.get('/settings', requireAdmin, asyncHandler(async (_req, res) => {
+  const settings = await getStore().getSettings();
+  res.json({ settings });
+}));
+
+router.put('/settings', requireAdmin, asyncHandler(async (req, res) => {
+  const rawRate = toNumber(req.body?.usdToRwfRate, NaN);
+  if (!Number.isFinite(rawRate) || rawRate <= 0) {
+    return res.status(400).json({ error: 'Enter a valid USD to RWF exchange rate.' });
+  }
+  const settings = await getStore().updateSettings({ usdToRwfRate: rawRate });
+  await logActivity({
+    actor: req.user!,
+    action: 'EXCHANGE_RATE_UPDATED',
+    targetType: 'system',
+    targetId: 'usd_to_rwf_rate',
+    details: `USD to RWF exchange rate set to ${settings.usdToRwfRate}.`,
+  });
+  res.json({ success: true, settings });
+}));
+
 // -------------------------------------------------------------------- stats
 router.get('/stats', requireAdmin, asyncHandler(async (_req, res) => {
   const store = getStore();

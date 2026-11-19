@@ -2,9 +2,11 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ShieldCheck, Lock, Mail, LogOut, LayoutDashboard, Package, Tags, ShoppingCart,
   Users, Store, PlaneTakeoff, ScrollText, Send, Plus, Search, Pencil, Trash2,
-  X, RefreshCw, AlertTriangle, Star, Upload, KeyRound, Ban, CheckCircle2, EyeOff,
+  X, RefreshCw, AlertTriangle, Star, Upload, KeyRound, Ban, CheckCircle2, EyeOff, Settings,
 } from 'lucide-react';
-import { fulfillmentStatusLabel } from '../types';
+import {
+  DEFAULT_USD_TO_RWF_RATE, formatRwf, fulfillmentStatusLabel, normalizeUsdToRwfRate,
+} from '../types';
 import { api } from '../services/api';
 import { resolveProductImage } from '../services/images';
 import type {
@@ -17,7 +19,7 @@ interface AdminViewsProps {
 
 type AdminTab =
   | 'overview' | 'products' | 'categories' | 'orders'
-  | 'users' | 'businesses' | 'china' | 'activity' | 'email';
+  | 'users' | 'businesses' | 'china' | 'activity' | 'email' | 'settings';
 
 const TABS: Array<{ id: AdminTab; label: string; icon: React.ReactNode }> = [
   { id: 'overview', label: 'Overview', icon: <LayoutDashboard className="w-4 h-4" /> },
@@ -29,6 +31,7 @@ const TABS: Array<{ id: AdminTab; label: string; icon: React.ReactNode }> = [
   { id: 'china', label: 'China Requests', icon: <PlaneTakeoff className="w-4 h-4" /> },
   { id: 'activity', label: 'Activity Log', icon: <ScrollText className="w-4 h-4" /> },
   { id: 'email', label: 'Email Delivery', icon: <Send className="w-4 h-4" /> },
+  { id: 'settings', label: 'Settings', icon: <Settings className="w-4 h-4" /> },
 ];
 
 const inputClass =
@@ -206,6 +209,8 @@ export const AdminViews: React.FC<AdminViewsProps> = ({ onNavigate }) => {
     emails: Array<{ id: string; to: string; subject: string; purpose: string; status: string; sentAt: string }>;
     deliveryConfigured: boolean;
   }>({ emails: [], deliveryConfigured: false });
+  const [settingsDraft, setSettingsDraft] = useState({ usdToRwfRate: String(DEFAULT_USD_TO_RWF_RATE) });
+  const [settingsUpdatedAt, setSettingsUpdatedAt] = useState('');
 
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -248,7 +253,7 @@ export const AdminViews: React.FC<AdminViewsProps> = ({ onNavigate }) => {
     setBusy(true);
     setError('');
     try {
-      const [statsData, productData, categoryData, businessData, userData, orderData, chinaData, logData, emailData] =
+      const [statsData, productData, categoryData, businessData, userData, orderData, chinaData, logData, emailData, settingsData] =
         await Promise.all([
           api.getAdminStats(),
           api.getAdminProducts({ pageSize: '100', search: productSearch }),
@@ -259,6 +264,7 @@ export const AdminViews: React.FC<AdminViewsProps> = ({ onNavigate }) => {
           api.getAdminChinaRequests(),
           api.getAdminActivityLogs(80),
           api.getAdminEmails(40),
+          api.getAdminSettings(),
         ]);
       setStats(statsData);
       setProducts(productData.products || []);
@@ -270,6 +276,8 @@ export const AdminViews: React.FC<AdminViewsProps> = ({ onNavigate }) => {
       setChinaRequests(chinaData || []);
       setLogs(logData || []);
       setEmailLog(emailData);
+      setSettingsDraft({ usdToRwfRate: String(settingsData.settings.usdToRwfRate) });
+      setSettingsUpdatedAt(settingsData.settings.updatedAt);
     } catch (err: any) {
       // Background data loading must never sign the admin out. A 401 only
       // offers an explicit re-authentication action; cached access stays put.
@@ -364,6 +372,27 @@ export const AdminViews: React.FC<AdminViewsProps> = ({ onNavigate }) => {
       await loadAll();
     } catch (err: any) {
       reportError(err, 'Could not save the product.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const saveSettings = async () => {
+    const rawRate = Number(settingsDraft.usdToRwfRate);
+    if (!Number.isFinite(rawRate) || rawRate <= 0) {
+      setError('Enter a valid USD to RWF exchange rate.');
+      return;
+    }
+    const rate = normalizeUsdToRwfRate(rawRate);
+    setBusy(true);
+    setError('');
+    try {
+      const result = await api.updateAdminSettings({ usdToRwfRate: rate });
+      setSettingsDraft({ usdToRwfRate: String(result.settings.usdToRwfRate) });
+      setSettingsUpdatedAt(result.settings.updatedAt);
+      flash('Exchange rate saved.');
+    } catch (err: any) {
+      reportError(err, 'Could not save the exchange rate.');
     } finally {
       setBusy(false);
     }
@@ -1106,6 +1135,44 @@ export const AdminViews: React.FC<AdminViewsProps> = ({ onNavigate }) => {
               <EyeOff className="w-3 h-3" />
               Message bodies and verification codes are never exposed to this console.
             </p>
+          </Panel>
+        )}
+
+        {tab === 'settings' && (
+          <Panel title="Currency conversion">
+            <div className="max-w-xl space-y-3">
+              <p className="text-[11px] text-[#888888] leading-relaxed">
+                Catalog prices are stored in USD. Checkout converts the final order total to RWF using this
+                store-wide rate. Sellers add their MoMo Pay and Airtel Money codes in their own dashboards.
+              </p>
+              <div>
+                <label className={labelClass}>USD to RWF exchange rate</label>
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <input
+                    type="number"
+                    min="1"
+                    step="0.01"
+                    className={inputClass}
+                    value={settingsDraft.usdToRwfRate}
+                    onChange={e => setSettingsDraft({ ...settingsDraft, usdToRwfRate: e.target.value })}
+                  />
+                  <button type="button" onClick={saveSettings} disabled={busy} className={`${primaryButton} shrink-0`}>
+                    Save rate
+                  </button>
+                </div>
+              </div>
+              <div className="rounded-lg border border-[#262626] bg-[#141414] px-3 py-2 text-[11px] text-[#BBBBBB]">
+                Example: <strong className="text-white">$100</strong> ={' '}
+                <strong className="text-[#FF6A00]">
+                  {formatRwf(100, normalizeUsdToRwfRate(settingsDraft.usdToRwfRate))}
+                </strong>
+              </div>
+              {settingsUpdatedAt && (
+                <p className="text-[10px] text-[#555555]">
+                  Last updated {new Date(settingsUpdatedAt).toLocaleString()}
+                </p>
+              )}
+            </div>
           </Panel>
         )}
       </main>

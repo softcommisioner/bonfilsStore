@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Store, Package, ShoppingCart, DollarSign, Plus, 
-  Trash2, Edit, Truck, ArrowLeftRight, CheckCircle2, AlertCircle 
+  Trash2, Edit, Truck, ArrowLeftRight, CheckCircle2, AlertCircle, Smartphone
 } from 'lucide-react';
 import { fulfillmentStatusLabel } from '../types';
 import { useAuth } from '../context/AuthContext';
@@ -15,7 +15,7 @@ interface SellerDashboardViewProps {
 export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({ onNavigate }) => {
   const { user, userMode, setUserMode } = useAuth();
 
-  const [activeTab, setActiveTab] = useState<'overview' | 'products' | 'orders' | 'profile'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'products' | 'orders' | 'payments' | 'profile'>('overview');
   const [business, setBusiness] = useState<Business | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
@@ -29,6 +29,10 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({ onNavi
   });
   const [isLoading, setIsLoading] = useState(true);
   const [formError, setFormError] = useState('');
+  const [momoPayCode, setMomoPayCode] = useState('');
+  const [airtelMoneyCode, setAirtelMoneyCode] = useState('');
+  const [whatsappNumber, setWhatsappNumber] = useState('');
+  const [paymentSaved, setPaymentSaved] = useState(false);
 
   // Add/Edit Product Modal State
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
@@ -70,6 +74,30 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({ onNavi
   useEffect(() => {
     fetchDashboardData();
   }, []);
+
+  useEffect(() => {
+    if (!business) return;
+    setMomoPayCode(business.momoPayCode || '');
+    setAirtelMoneyCode(business.airtelMoneyCode || '');
+    setWhatsappNumber(business.whatsappNumber || '');
+  }, [business]);
+
+  const handleSavePaymentSettings = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setFormError('');
+    setPaymentSaved(false);
+    try {
+      const result = await api.updateSellerProfile({
+        momoPayCode: momoPayCode.trim(),
+        airtelMoneyCode: airtelMoneyCode.trim(),
+        whatsappNumber: whatsappNumber.trim(),
+      });
+      setBusiness(result.business);
+      setPaymentSaved(true);
+    } catch (err: any) {
+      setFormError(err.message || 'Could not save payment details.');
+    }
+  };
 
   const handleOpenAddModal = () => {
     setFormError('');
@@ -238,6 +266,16 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({ onNavi
         >
           <ShoppingCart className="w-4 h-4" />
           <span>Customer Orders ({orders.length})</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('payments')}
+          className={`pb-3 border-b-2 flex items-center gap-1.5 cursor-pointer ${
+            activeTab === 'payments' ? 'border-[#FF6A00] text-[#FF6A00]' : 'border-transparent hover:text-[#222222]'
+          }`}
+        >
+          <Smartphone className="w-4 h-4" />
+          <span>Payment Details</span>
         </button>
       </div>
 
@@ -500,6 +538,75 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({ onNavi
               </div>
             ))
           )}
+        </div>
+      )}
+
+      {/* Tab 4: Payment Details */}
+      {activeTab === 'payments' && (
+        <div className="bg-white rounded-2xl border border-[#E5E5E5] p-6 shadow-xs">
+          <div className="max-w-2xl space-y-4">
+            <div>
+              <h3 className="text-sm font-bold text-[#222222] uppercase tracking-wide">
+                Mobile Money Payment Details
+              </h3>
+              <p className="text-xs text-[#666666] mt-1">
+                Add the codes buyers should pay at checkout. These appear with your products in the order summary.
+              </p>
+            </div>
+
+            <form onSubmit={handleSavePaymentSettings} className="space-y-3 text-xs">
+              <div>
+                <label className="block font-semibold text-[#444444] mb-1">MTN MoMo Pay code</label>
+                <input
+                  type="text"
+                  value={momoPayCode}
+                  onChange={(e) => setMomoPayCode(e.target.value)}
+                  placeholder="e.g. 420123"
+                  className="w-full px-3 py-2 border border-[#E5E5E5] rounded-lg focus:border-[#FF6A00] focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block font-semibold text-[#444444] mb-1">Airtel Money details</label>
+                <input
+                  type="text"
+                  value={airtelMoneyCode}
+                  onChange={(e) => setAirtelMoneyCode(e.target.value)}
+                  placeholder="e.g. Airtel number or pay code"
+                  className="w-full px-3 py-2 border border-[#E5E5E5] rounded-lg focus:border-[#FF6A00] focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block font-semibold text-[#444444] mb-1">WhatsApp number (optional)</label>
+                <input
+                  type="tel"
+                  value={whatsappNumber}
+                  onChange={(e) => setWhatsappNumber(e.target.value)}
+                  placeholder="+250 788 000 000"
+                  className="w-full px-3 py-2 border border-[#E5E5E5] rounded-lg focus:border-[#FF6A00] focus:outline-none"
+                />
+              </div>
+
+              {formError && (
+                <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+                  {formError}
+                </div>
+              )}
+              {paymentSaved && (
+                <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-700">
+                  Payment details saved.
+                </div>
+              )}
+
+              <button
+                type="submit"
+                className="px-5 py-2 bg-[#FF6A00] hover:bg-[#FF8A00] text-white font-bold rounded-lg cursor-pointer"
+              >
+                Save Payment Details
+              </button>
+            </form>
+          </div>
         </div>
       )}
 
