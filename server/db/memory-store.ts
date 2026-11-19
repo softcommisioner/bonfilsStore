@@ -131,7 +131,9 @@ export class MemoryStore implements Store {
   }
 
   async findUserByEmail(email: string): Promise<UserRecord | null> {
-    return this.tables.users.find(u => u.email.toLowerCase() === email.toLowerCase()) || null;
+    const normalized = String(email || '').trim().toLowerCase();
+    if (!normalized) return null;
+    return this.tables.users.find(u => u.email.toLowerCase() === normalized) || null;
   }
 
   async findUserById(id: string): Promise<UserRecord | null> {
@@ -143,15 +145,18 @@ export class MemoryStore implements Store {
   }
 
   async createUser(user: UserRecord): Promise<UserRecord> {
-    this.tables.users.push(user);
+    const saved = { ...user, email: String(user.email || '').trim().toLowerCase() };
+    this.tables.users.push(saved);
     this.flush();
-    return clone(user);
+    return clone(saved);
   }
 
   async updateUser(id: string, patch: Partial<UserRecord>): Promise<UserRecord | null> {
     const index = this.tables.users.findIndex(u => u.id === id);
     if (index === -1) return null;
-    this.tables.users[index] = { ...this.tables.users[index], ...patch };
+    const next = { ...this.tables.users[index], ...patch } as UserRecord;
+    if (patch.email !== undefined) next.email = String(patch.email || '').trim().toLowerCase();
+    this.tables.users[index] = next;
     this.flush();
     return clone(this.tables.users[index]);
   }

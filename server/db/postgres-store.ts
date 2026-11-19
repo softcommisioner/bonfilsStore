@@ -251,7 +251,9 @@ export class PostgresStore implements Store {
   }
 
   async findUserByEmail(email: string): Promise<UserRecord | null> {
-    const rows = await this.query('SELECT * FROM users WHERE LOWER(email) = LOWER($1) LIMIT 1', [email]);
+    const normalized = String(email || '').trim().toLowerCase();
+    if (!normalized) return null;
+    const rows = await this.query('SELECT * FROM users WHERE LOWER(email) = LOWER($1) LIMIT 1', [normalized]);
     return rows[0] ? mapUser(rows[0]) : null;
   }
 
@@ -266,11 +268,12 @@ export class PostgresStore implements Store {
   }
 
   async createUser(user: UserRecord): Promise<UserRecord> {
+    const email = String(user.email || '').trim().toLowerCase();
     const rows = await this.query(
       `INSERT INTO users (id, name, email, phone, country, city, roles, account_type, is_verified, status, business_id, password_hash, password_salt, created_at)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) RETURNING *`,
       [
-        user.id, user.name, user.email, user.phone, user.country, user.city, user.roles,
+        user.id, user.name, email, user.phone, user.country, user.city, user.roles,
         user.accountType, user.isVerified, user.status, user.businessId || null,
         user.passwordHash, user.passwordSalt, user.createdAt,
       ],
@@ -288,7 +291,9 @@ export class PostgresStore implements Store {
     const values: any[] = [];
     for (const [key, column] of Object.entries(map)) {
       if ((patch as any)[key] !== undefined) {
-        values.push((patch as any)[key] === '' ? null : (patch as any)[key]);
+        let value = (patch as any)[key] === '' ? null : (patch as any)[key];
+        if (key === 'email' && typeof value === 'string') value = value.trim().toLowerCase();
+        values.push(value);
         sets.push(`${column} = $${values.length}`);
       }
     }

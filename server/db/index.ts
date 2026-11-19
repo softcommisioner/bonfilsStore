@@ -48,20 +48,6 @@ export async function initStore(): Promise<Store> {
       if (store) {
         await store.close().catch(() => {});
       }
-      if (config.databaseUrl && config.isServerless) {
-        const message = error instanceof Error ? error.message : String(error);
-        console.error(`[db] postgres init/migration failed, falling back to ephemeral memory store: ${message}`);
-        try {
-          const fallback = new MemoryStore(null);
-          await fallback.init();
-          storeInstance = fallback;
-          console.warn('[db] fallback store ready (memory)');
-          return fallback;
-        } catch (fallbackError) {
-          const fallbackMessage = fallbackError instanceof Error ? fallbackError.message : String(fallbackError);
-          console.error(`[db] memory fallback failed: ${fallbackMessage}`);
-        }
-      }
       throw error;
     }
   })();
