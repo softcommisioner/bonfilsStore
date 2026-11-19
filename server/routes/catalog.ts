@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import type { ProductFulfillmentStatus } from '../../src/types.js';
 import { config } from '../config.js';
 import { getStore } from '../db/index.js';
 import { isEmailDeliveryConfigured } from '../services/email.js';
@@ -10,6 +11,7 @@ const router = Router();
 const SORTS = new Set(['price_asc', 'price_desc', 'popular', 'rating', 'newest']);
 
 function parseProductQuery(query: Record<string, unknown>) {
+  const fulfillment = String(query.fulfillment || '');
   return {
     search: typeof query.search === 'string' && query.search.trim() ? query.search.trim() : undefined,
     category: typeof query.category === 'string' && query.category && query.category !== 'All' ? query.category : undefined,
@@ -21,6 +23,9 @@ function parseProductQuery(query: Record<string, unknown>) {
     page: Math.max(1, toNumber(query.page, 1)),
     pageSize: Math.min(48, Math.max(1, toNumber(query.pageSize, 12))),
     featuredOnly: query.featured === 'true' || query.featured === '1',
+    fulfillmentStatus: (fulfillment === 'available_now' || fulfillment === 'requires_shipping_import'
+      ? fulfillment
+      : undefined) as ProductFulfillmentStatus | undefined,
   };
 }
 

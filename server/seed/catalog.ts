@@ -1,4 +1,4 @@
-import type { Business, Category, Product, UserRole } from '../../src/types.js';
+import type { Business, Category, Product, ProductFulfillmentStatus, UserRole } from '../../src/types.js';
 import type { UserRecord } from '../db/index.js';
 import { CATEGORY_IMAGES, PRODUCT_IMAGES } from './images.js';
 
@@ -113,6 +113,8 @@ interface ProductSeed {
   salesCount?: number;
   shippingOrigin?: string;
   shippingTimeDays?: string;
+  fulfillmentStatus?: ProductFulfillmentStatus;
+  estimatedDeliveryDays?: number | null;
   specifications?: Record<string, string>;
   isFeatured?: boolean;
   isActive?: boolean;
@@ -449,6 +451,8 @@ function buildProduct(seed: ProductSeed): Product {
     salesCount: seed.salesCount ?? 0,
     shippingOrigin: seed.shippingOrigin || 'Kigali Local Warehouse',
     shippingTimeDays: seed.shippingTimeDays || '1 - 2 Days',
+    fulfillmentStatus: seed.fulfillmentStatus || 'available_now',
+    estimatedDeliveryDays: seed.estimatedDeliveryDays ?? null,
     specifications: seed.specifications || {},
     isFeatured: seed.isFeatured ?? false,
     isActive: seed.isActive ?? true,

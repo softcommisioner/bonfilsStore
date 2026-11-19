@@ -110,6 +110,7 @@ function MainRouter() {
   const categoryParam = urlParams.get('category') || '';
   const sortParam = urlParams.get('sort') || '';
   const featuredParam = urlParams.get('featured') || '';
+  const fulfillmentParam = urlParams.get('fulfillment') || '';
   const trackingParam = urlParams.get('trk') || '';
   const tabParam = (urlParams.get('tab') as any) || 'orders';
 
@@ -145,6 +146,7 @@ function MainRouter() {
             initialSearch={searchParam}
             initialSort={sortParam}
             initialFeatured={featuredParam}
+            initialFulfillment={fulfillmentParam}
           />
         )}
 

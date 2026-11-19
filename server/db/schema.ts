@@ -94,12 +94,18 @@ CREATE TABLE IF NOT EXISTS products (
   sales_count        INTEGER NOT NULL DEFAULT 0,
   shipping_origin    TEXT NOT NULL DEFAULT '',
   shipping_time_days TEXT NOT NULL DEFAULT '',
+  fulfillment_status  TEXT NOT NULL DEFAULT 'available_now',
+  estimated_delivery_days INTEGER,
   specifications     JSONB NOT NULL DEFAULT '{}'::JSONB,
   is_featured        BOOLEAN NOT NULL DEFAULT FALSE,
   is_active          BOOLEAN NOT NULL DEFAULT TRUE,
   created_at         TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at         TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+ALTER TABLE products ADD COLUMN IF NOT EXISTS fulfillment_status TEXT NOT NULL DEFAULT 'available_now';
+ALTER TABLE products ADD COLUMN IF NOT EXISTS estimated_delivery_days INTEGER;
+UPDATE products SET fulfillment_status = 'available_now' WHERE fulfillment_status IS NULL;
+CREATE INDEX IF NOT EXISTS products_fulfillment_idx ON products (fulfillment_status);
 CREATE INDEX IF NOT EXISTS products_category_idx ON products (LOWER(category));
 CREATE INDEX IF NOT EXISTS products_business_idx ON products (business_id);
 CREATE INDEX IF NOT EXISTS products_active_idx ON products (is_active);

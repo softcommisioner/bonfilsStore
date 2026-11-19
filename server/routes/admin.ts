@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { config } from '../config.js';
 import { getStore } from '../db/index.js';
 import type { UserRecord } from '../db/index.js';
+import { normalizeEstimatedDeliveryDays, normalizeFulfillmentStatus } from '../../src/types.js';
 import type { AdminStats, Product } from '../../src/types.js';
 import { hasSuperAdminRole, logActivity, pushNotification, requireAdmin } from '../middleware.js';
 import { adminRateLimiter, clientKey, createSession, hashPassword, newId, verifyPassword } from '../security.js';
@@ -371,6 +372,8 @@ router.post('/products', requireAdmin, asyncHandler(async (req, res) => {
     salesCount: 0,
     shippingOrigin: String(req.body?.shippingOrigin || 'Kigali Local Warehouse'),
     shippingTimeDays: String(req.body?.shippingTimeDays || '1 - 2 Days'),
+    fulfillmentStatus: normalizeFulfillmentStatus(req.body?.fulfillmentStatus),
+    estimatedDeliveryDays: normalizeEstimatedDeliveryDays(req.body?.estimatedDeliveryDays),
     specifications: (req.body?.specifications || {}) as Product['specifications'],
     isFeatured: Boolean(req.body?.isFeatured),
     isActive: req.body?.isActive === undefined ? true : Boolean(req.body.isActive),
@@ -420,6 +423,12 @@ router.put('/products/:id', requireAdmin, asyncHandler(async (req, res) => {
     patch.images = req.body.images.filter((image: unknown): image is string => typeof image === 'string').slice(0, 8);
   }
   if (req.body?.specifications !== undefined) patch.specifications = req.body.specifications;
+  if (req.body?.fulfillmentStatus !== undefined) {
+    patch.fulfillmentStatus = normalizeFulfillmentStatus(req.body.fulfillmentStatus);
+  }
+  if (req.body?.estimatedDeliveryDays !== undefined) {
+    patch.estimatedDeliveryDays = normalizeEstimatedDeliveryDays(req.body.estimatedDeliveryDays);
+  }
   if (req.body?.isFeatured !== undefined) patch.isFeatured = Boolean(req.body.isFeatured);
   if (req.body?.isActive !== undefined) patch.isActive = Boolean(req.body.isActive);
   if (req.body?.businessId !== undefined) {

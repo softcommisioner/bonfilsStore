@@ -1,8 +1,9 @@
 import fs from 'fs';
 import path from 'path';
-import type {
-  Business, Product, Order, ChinaRequest, ShippingOrder, Category,
-  AdminActivityLog, EmailRecord, NotificationItem
+import {
+  normalizeEstimatedDeliveryDays, normalizeFulfillmentStatus,
+  type Business, type Product, type Order, type ChinaRequest, type ShippingOrder, type Category,
+  type AdminActivityLog, type EmailRecord, type NotificationItem
 } from '../../src/types.js';
 import {
   InsufficientStockError,
@@ -78,7 +79,11 @@ export class MemoryStore implements Store {
           otps: raw.otps || [],
           businesses: raw.businesses || [],
           categories: raw.categories || [],
-          products: raw.products || [],
+          products: (raw.products || []).map((product: Product) => ({
+            ...product,
+            fulfillmentStatus: normalizeFulfillmentStatus(product.fulfillmentStatus),
+            estimatedDeliveryDays: normalizeEstimatedDeliveryDays(product.estimatedDeliveryDays),
+          })),
           orders: raw.orders || [],
           chinaRequests: raw.chinaRequests || [],
           shippingOrders: raw.shippingOrders || [],
@@ -289,6 +294,9 @@ export class MemoryStore implements Store {
     let results = [...this.tables.products];
     if (!query.includeInactive) results = results.filter(p => p.isActive !== false);
     if (query.featuredOnly) results = results.filter(p => p.isFeatured);
+    if (query.fulfillmentStatus) {
+      results = results.filter(p => normalizeFulfillmentStatus(p.fulfillmentStatus) === query.fulfillmentStatus);
+    }
     if (query.ids) results = results.filter(p => query.ids!.includes(p.id));
     if (query.search) {
       const needle = query.search.toLowerCase().trim();
@@ -334,15 +342,27 @@ export class MemoryStore implements Store {
   }
 
   async createProduct(product: Product): Promise<Product> {
-    this.tables.products.unshift(product);
+    const saved = {
+      ...product,
+      fulfillmentStatus: normalizeFulfillmentStatus(product.fulfillmentStatus),
+      estimatedDeliveryDays: normalizeEstimatedDeliveryDays(product.estimatedDeliveryDays),
+    };
+    this.tables.products.unshift(saved);
     this.flush();
-    return clone(product);
+    return clone(saved);
   }
 
   async updateProduct(id: string, patch: Partial<Product>): Promise<Product | null> {
     const index = this.tables.products.findIndex(p => p.id === id);
     if (index === -1) return null;
-    this.tables.products[index] = { ...this.tables.products[index], ...patch };
+    this.tables.products[index] = {
+      ...this.tables.products[index],
+      ...patch,
+      fulfillmentStatus: normalizeFulfillmentStatus(patch.fulfillmentStatus ?? this.tables.products[index].fulfillmentStatus),
+      estimatedDeliveryDays: patch.estimatedDeliveryDays !== undefined
+        ? normalizeEstimatedDeliveryDays(patch.estimatedDeliveryDays)
+        : (this.tables.products[index].estimatedDeliveryDays ?? null),
+    };
     this.flush();
     return clone(this.tables.products[index]);
   }

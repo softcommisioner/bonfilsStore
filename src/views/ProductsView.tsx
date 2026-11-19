@@ -10,6 +10,7 @@ interface ProductsViewProps {
   initialSearch?: string;
   initialSort?: string;
   initialFeatured?: string;
+  initialFulfillment?: string;
 }
 
 const PAGE_SIZE = 12;
@@ -20,6 +21,7 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
   initialSearch = '',
   initialSort = 'newest',
   initialFeatured = '',
+  initialFulfillment = '',
 }) => {
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Array<{ name: string; count: number }>>([]);
@@ -39,6 +41,7 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
   const [search, setSearch] = useState<string>(initialSearch);
   const [searchInput, setSearchInput] = useState<string>(initialSearch);
   const [featuredOnly, setFeaturedOnly] = useState<boolean>(initialFeatured === 'true');
+  const [fulfillmentStatus, setFulfillmentStatus] = useState('');
 
   useEffect(() => {
     if (initialCategory) setSelectedCategory(initialCategory);
@@ -60,6 +63,12 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
   }, [initialFeatured]);
 
   useEffect(() => {
+    if (initialFulfillment === 'available_now' || initialFulfillment === 'requires_shipping_import') {
+      setFulfillmentStatus(initialFulfillment);
+    }
+  }, [initialFulfillment]);
+
+  useEffect(() => {
     const timer = setTimeout(() => setSearch(searchInput.trim()), 350);
     return () => clearTimeout(timer);
   }, [searchInput]);
@@ -76,8 +85,9 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
     if (maxPrice) params.maxPrice = maxPrice;
     if (sortBy) params.sort = sortBy;
     if (featuredOnly) params.featured = 'true';
+    if (fulfillmentStatus) params.fulfillment = fulfillmentStatus;
     return params;
-  }, [search, selectedCategory, selectedSeller, minPrice, maxPrice, sortBy, featuredOnly]);
+  }, [search, selectedCategory, selectedSeller, minPrice, maxPrice, sortBy, featuredOnly, fulfillmentStatus]);
 
   const fetchProducts = useCallback(async (targetPage: number) => {
     setIsLoading(true);
@@ -144,9 +154,12 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
     setSearch('');
     setSearchInput('');
     setFeaturedOnly(false);
+    setFulfillmentStatus('');
   };
 
-  const hasActiveFilters = Boolean(selectedCategory || selectedSeller || minPrice || maxPrice || search || featuredOnly);
+  const hasActiveFilters = Boolean(
+    selectedCategory || selectedSeller || minPrice || maxPrice || search || featuredOnly || fulfillmentStatus,
+  );
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -236,6 +249,36 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
                     <span className="text-[10px] text-[#999999] tabular-nums font-mono">({category.count})</span>
                   </button>
                 ))}
+              </div>
+            </div>
+
+            <div className="pt-4 border-t border-[#F0F0F0]">
+              <h4 className="text-xs font-semibold text-[#444444] mb-2.5">Availability</h4>
+              <div className="grid grid-cols-1 gap-1">
+                <button
+                  onClick={() => setFulfillmentStatus('')}
+                  className={`w-full text-left text-xs px-2.5 py-1.5 rounded-md transition-colors cursor-pointer ${
+                    !fulfillmentStatus ? 'bg-[#FFF3E8] text-[#FF6A00] font-bold' : 'text-[#666666] hover:bg-[#F7F7F7]'
+                  }`}
+                >
+                  All Items
+                </button>
+                <button
+                  onClick={() => setFulfillmentStatus('available_now')}
+                  className={`w-full text-left text-xs px-2.5 py-1.5 rounded-md transition-colors cursor-pointer ${
+                    fulfillmentStatus === 'available_now' ? 'bg-emerald-50 text-[#18794E] font-bold' : 'text-[#666666] hover:bg-[#F7F7F7]'
+                  }`}
+                >
+                  Available Now
+                </button>
+                <button
+                  onClick={() => setFulfillmentStatus('requires_shipping_import')}
+                  className={`w-full text-left text-xs px-2.5 py-1.5 rounded-md transition-colors cursor-pointer ${
+                    fulfillmentStatus === 'requires_shipping_import' ? 'bg-[#FFF3E8] text-[#FF6A00] font-bold' : 'text-[#666666] hover:bg-[#F7F7F7]'
+                  }`}
+                >
+                  Requires Shipping / Import
+                </button>
               </div>
             </div>
 

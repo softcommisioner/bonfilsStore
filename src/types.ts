@@ -35,6 +35,22 @@ export interface Business {
   createdAt: string;
 }
 
+export type ProductFulfillmentStatus = 'available_now' | 'requires_shipping_import';
+
+export function normalizeFulfillmentStatus(value: unknown): ProductFulfillmentStatus {
+  return value === 'requires_shipping_import' ? 'requires_shipping_import' : 'available_now';
+}
+
+export function normalizeEstimatedDeliveryDays(value: unknown): number | null {
+  if (value === undefined || value === null || value === '') return null;
+  const days = Number(value);
+  return Number.isFinite(days) && days > 0 ? Math.min(365, Math.floor(days)) : null;
+}
+
+export function fulfillmentStatusLabel(status: ProductFulfillmentStatus | undefined): string {
+  return status === 'requires_shipping_import' ? 'Requires Shipping / Import' : 'Available Now';
+}
+
 export interface Product {
   id: string;
   businessId: string;
@@ -53,6 +69,8 @@ export interface Product {
   salesCount: number;
   shippingOrigin: string;
   shippingTimeDays: string;
+  fulfillmentStatus: ProductFulfillmentStatus;
+  estimatedDeliveryDays?: number | null;
   specifications: Record<string, string>;
   isFeatured: boolean;
   isActive: boolean;

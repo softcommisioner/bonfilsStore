@@ -3,6 +3,7 @@ import {
   Store, Package, ShoppingCart, DollarSign, Plus, 
   Trash2, Edit, Truck, ArrowLeftRight, CheckCircle2, AlertCircle 
 } from 'lucide-react';
+import { fulfillmentStatusLabel } from '../types';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../services/api';
 import type { Product, Order, Business, Category } from '../types';
@@ -40,6 +41,8 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({ onNavi
   const [prodStock, setProdStock] = useState('20');
   const [prodImage, setProdImage] = useState('');
   const [shippingTime, setShippingTime] = useState('1 - 2 Days');
+  const [fulfillmentStatus, setFulfillmentStatus] = useState<Product['fulfillmentStatus']>('available_now');
+  const [estimatedDeliveryDays, setEstimatedDeliveryDays] = useState('');
 
   // Order status update state
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
@@ -79,6 +82,8 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({ onNavi
     setProdStock('20');
     setProdImage('');
     setShippingTime('1 - 2 Days');
+    setFulfillmentStatus('available_now');
+    setEstimatedDeliveryDays('');
     setIsProductModalOpen(true);
   };
 
@@ -93,6 +98,8 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({ onNavi
     setProdStock(p.stock.toString());
     setProdImage(p.images[0] || '');
     setShippingTime(p.shippingTimeDays);
+    setFulfillmentStatus(p.fulfillmentStatus || 'available_now');
+    setEstimatedDeliveryDays(p.estimatedDeliveryDays ? String(p.estimatedDeliveryDays) : '');
     setIsProductModalOpen(true);
   };
 
@@ -108,6 +115,8 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({ onNavi
         stock: prodStock,
         images: prodImage ? [prodImage] : ['/src/assets/images/product_cctv_camera_1790334796559.jpg'],
         shippingTimeDays: shippingTime,
+        fulfillmentStatus,
+        estimatedDeliveryDays: estimatedDeliveryDays || null,
       };
 
       if (editingProduct) {
@@ -350,7 +359,16 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({ onNavi
                           referrerPolicy="no-referrer"
                           className="w-10 h-10 object-cover rounded border border-[#EEEEEE]"
                         />
-                        <span className="font-semibold text-[#222222] line-clamp-1 max-w-xs">{p.title}</span>
+                        <div className="min-w-0">
+                          <span className="block font-semibold text-[#222222] line-clamp-1 max-w-xs">{p.title}</span>
+                          <span className={`mt-0.5 inline-block text-[9px] px-1.5 py-0.5 rounded ${
+                            p.fulfillmentStatus === 'requires_shipping_import'
+                              ? 'bg-[#FFF3E8] text-[#FF6A00]'
+                              : 'bg-emerald-50 text-[#22A06B]'
+                          }`}>
+                            {fulfillmentStatusLabel(p.fulfillmentStatus)}
+                          </span>
+                        </div>
                       </div>
                     </td>
                     <td className="py-3 px-3 text-[#666666]">{p.category}</td>
@@ -581,6 +599,32 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({ onNavi
                   className="w-full px-3 py-2 border border-[#E5E5E5] rounded-lg focus:border-[#FF6A00] focus:outline-none"
                 />
               </div>
+
+              <div>
+                <label className="block font-semibold text-[#444444] mb-1">Availability</label>
+                <select
+                  value={fulfillmentStatus}
+                  onChange={(e) => setFulfillmentStatus(e.target.value as Product['fulfillmentStatus'])}
+                  className="w-full px-3 py-2 border border-[#E5E5E5] rounded-lg focus:border-[#FF6A00] focus:outline-none bg-white"
+                >
+                  <option value="available_now">Available Now</option>
+                  <option value="requires_shipping_import">Requires Shipping / Import</option>
+                </select>
+              </div>
+
+              {fulfillmentStatus === 'requires_shipping_import' && (
+                <div>
+                  <label className="block font-semibold text-[#444444] mb-1">Estimated delivery days (optional)</label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={estimatedDeliveryDays}
+                    onChange={(e) => setEstimatedDeliveryDays(e.target.value)}
+                    placeholder="e.g. 14"
+                    className="w-full px-3 py-2 border border-[#E5E5E5] rounded-lg focus:border-[#FF6A00] focus:outline-none"
+                  />
+                </div>
+              )}
 
               {formError && (
                 <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">

@@ -1,6 +1,6 @@
 import React from 'react';
-import { Star, ShoppingCart, ShieldCheck, Store, Truck, ImageOff } from 'lucide-react';
-import type { Product } from '../types';
+import { Star, ShoppingCart, ShieldCheck, Store, Truck, ImageOff, CheckCircle2 } from 'lucide-react';
+import { fulfillmentStatusLabel, type Product } from '../types';
 import { useCart } from '../context/CartContext';
 import { useProductImage } from '../services/images';
 
@@ -48,6 +48,10 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onNavigate })
     product.originalPrice && product.originalPrice > product.price
       ? Math.round((1 - product.price / product.originalPrice) * 100)
       : 0;
+  const requiresShipping = product.fulfillmentStatus === 'requires_shipping_import';
+  const deliveryText = product.estimatedDeliveryDays
+    ? `Est. ${product.estimatedDeliveryDays} days`
+    : product.shippingTimeDays;
 
   const handleAddToCart = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -78,21 +82,32 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onNavigate })
           }`}
         />
 
-        <div className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between gap-1 p-2">
-          {product.isOfficial ? (
-            <span className="inline-flex items-center gap-1 rounded bg-[#222222]/92 px-1.5 py-1 text-[10px] font-bold leading-none text-white shadow-sm backdrop-blur-sm">
-              <ShieldCheck className="h-3 w-3 text-[#FF6A00]" />
-              Official Store
-            </span>
-          ) : (
-            <span />
-          )}
+        <div className="pointer-events-none absolute inset-x-0 top-0 flex flex-col items-start gap-1 p-2">
+          <div className="flex w-full items-start justify-between gap-1">
+            {product.isOfficial ? (
+              <span className="inline-flex items-center gap-1 rounded bg-[#222222]/92 px-1.5 py-1 text-[10px] font-bold leading-none text-white shadow-sm backdrop-blur-sm">
+                <ShieldCheck className="h-3 w-3 text-[#FF6A00]" />
+                Official Store
+              </span>
+            ) : (
+              <span />
+            )}
 
-          {discount > 0 && inStock && (
-            <span className="rounded bg-[#FF6A00] px-1.5 py-1 text-[10px] font-extrabold leading-none text-white tabular-nums">
-              -{discount}%
-            </span>
-          )}
+            {discount > 0 && inStock && (
+              <span className="rounded bg-[#FF6A00] px-1.5 py-1 text-[10px] font-extrabold leading-none text-white tabular-nums">
+                -{discount}%
+              </span>
+            )}
+          </div>
+
+          <span className={`inline-flex items-center gap-1 rounded px-1.5 py-1 text-[10px] font-bold leading-none shadow-sm backdrop-blur-sm ${
+            requiresShipping
+              ? 'bg-[#FFF3E8]/95 text-[#C25A00]'
+              : 'bg-emerald-50/95 text-[#18794E]'
+          }`}>
+            {requiresShipping ? <Truck className="h-3 w-3" /> : <CheckCircle2 className="h-3 w-3" />}
+            {fulfillmentStatusLabel(product.fulfillmentStatus)}
+          </span>
         </div>
 
         {lowStock && (
@@ -159,10 +174,10 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onNavigate })
             )}
           </div>
 
-          {product.shippingTimeDays && (
+          {deliveryText && (
             <div className="flex items-center gap-1 text-[11px] text-[#7A7A7A]">
               <Truck className="h-3 w-3 shrink-0 text-[#22A06B]" />
-              <span className="truncate">{product.shippingTimeDays}</span>
+              <span className="truncate">{deliveryText}</span>
             </div>
           )}
 

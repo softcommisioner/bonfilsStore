@@ -4,6 +4,7 @@ import {
   Users, Store, PlaneTakeoff, ScrollText, Send, Plus, Search, Pencil, Trash2,
   X, RefreshCw, AlertTriangle, Star, Upload, KeyRound, Ban, CheckCircle2, EyeOff,
 } from 'lucide-react';
+import { fulfillmentStatusLabel } from '../types';
 import { api } from '../services/api';
 import { resolveProductImage } from '../services/images';
 import type {
@@ -101,6 +102,8 @@ const emptyProductDraft = {
   images: [] as string[],
   shippingOrigin: 'Kigali Local Warehouse',
   shippingTimeDays: '1 - 2 Days',
+  fulfillmentStatus: 'available_now' as Product['fulfillmentStatus'],
+  estimatedDeliveryDays: '',
   isFeatured: false,
   isActive: true,
   specifications: '',
@@ -340,6 +343,8 @@ export const AdminViews: React.FC<AdminViewsProps> = ({ onNavigate }) => {
         images: productDraft.images.filter(Boolean),
         shippingOrigin: productDraft.shippingOrigin,
         shippingTimeDays: productDraft.shippingTimeDays,
+        fulfillmentStatus: productDraft.fulfillmentStatus,
+        estimatedDeliveryDays: productDraft.estimatedDeliveryDays || null,
         isFeatured: productDraft.isFeatured,
         isActive: productDraft.isActive,
         specifications: productDraft.specifications
@@ -741,6 +746,13 @@ export const AdminViews: React.FC<AdminViewsProps> = ({ onNavigate }) => {
                           {product.isActive
                             ? <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-300">active</span>
                             : <span className="text-[9px] px-1.5 py-0.5 rounded bg-red-500/15 text-red-300">hidden</span>}
+                          <span className={`text-[9px] px-1.5 py-0.5 rounded ${
+                            product.fulfillmentStatus === 'requires_shipping_import'
+                              ? 'bg-[#FF6A00]/15 text-[#FF6A00]'
+                              : 'bg-emerald-500/15 text-emerald-300'
+                          }`}>
+                            {fulfillmentStatusLabel(product.fulfillmentStatus)}
+                          </span>
                           {product.isFeatured && <span className="text-[9px] px-1.5 py-0.5 rounded bg-[#FF6A00]/15 text-[#FF6A00]">featured</span>}
                         </div>
                       </td>
@@ -760,6 +772,8 @@ export const AdminViews: React.FC<AdminViewsProps> = ({ onNavigate }) => {
                             images: [...product.images],
                             shippingOrigin: product.shippingOrigin,
                             shippingTimeDays: product.shippingTimeDays,
+                            fulfillmentStatus: product.fulfillmentStatus || 'available_now',
+                            estimatedDeliveryDays: product.estimatedDeliveryDays ? String(product.estimatedDeliveryDays) : '',
                             isFeatured: product.isFeatured,
                             isActive: product.isActive,
                             specifications: Object.entries(product.specifications || {})
@@ -1139,6 +1153,30 @@ export const AdminViews: React.FC<AdminViewsProps> = ({ onNavigate }) => {
               <label className={labelClass}>Delivery estimate</label>
               <input className={inputClass} value={productDraft.shippingTimeDays} onChange={e => setProductDraft({ ...productDraft, shippingTimeDays: e.target.value })} />
             </div>
+            <div>
+              <label className={labelClass}>Availability</label>
+              <select
+                className={inputClass}
+                value={productDraft.fulfillmentStatus}
+                onChange={e => setProductDraft({ ...productDraft, fulfillmentStatus: e.target.value as Product['fulfillmentStatus'] })}
+              >
+                <option value="available_now">Available Now</option>
+                <option value="requires_shipping_import">Requires Shipping / Import</option>
+              </select>
+            </div>
+            {productDraft.fulfillmentStatus === 'requires_shipping_import' && (
+              <div>
+                <label className={labelClass}>Estimated delivery days (optional)</label>
+                <input
+                  type="number"
+                  min="1"
+                  className={inputClass}
+                  value={productDraft.estimatedDeliveryDays}
+                  onChange={e => setProductDraft({ ...productDraft, estimatedDeliveryDays: e.target.value })}
+                  placeholder="e.g. 14"
+                />
+              </div>
+            )}
             <div className="sm:col-span-2">
               <label className={labelClass}>Description</label>
               <textarea rows={3} className={inputClass} value={productDraft.description} onChange={e => setProductDraft({ ...productDraft, description: e.target.value })} />

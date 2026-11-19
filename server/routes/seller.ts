@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { getStore } from '../db/index.js';
+import { normalizeEstimatedDeliveryDays, normalizeFulfillmentStatus } from '../../src/types.js';
 import type { Product } from '../../src/types.js';
 import { logActivity, requireAuth, requireRole } from '../middleware.js';
 import { clientKey, newId, writeRateLimiter } from '../security.js';
@@ -42,6 +43,10 @@ async function productFromPayload(body: Record<string, unknown>, existing?: Prod
       : existing?.images || [],
     shippingOrigin: String(body.shippingOrigin ?? existing?.shippingOrigin ?? 'Kigali Local Warehouse'),
     shippingTimeDays: String(body.shippingTimeDays ?? existing?.shippingTimeDays ?? '1 - 2 Days'),
+    fulfillmentStatus: normalizeFulfillmentStatus(body.fulfillmentStatus ?? existing?.fulfillmentStatus),
+    estimatedDeliveryDays: body.estimatedDeliveryDays !== undefined
+      ? normalizeEstimatedDeliveryDays(body.estimatedDeliveryDays)
+      : (existing?.estimatedDeliveryDays ?? null),
     specifications: (body.specifications && typeof body.specifications === 'object'
       ? body.specifications
       : existing?.specifications) as Product['specifications'],

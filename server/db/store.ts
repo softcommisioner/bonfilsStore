@@ -1,5 +1,5 @@
 import type {
-  User, Business, Product, Order, ChinaRequest, ShippingOrder,
+  User, Business, Product, ProductFulfillmentStatus, Order, ChinaRequest, ShippingOrder,
   AdminActivityLog, EmailRecord, NotificationItem, Category
 } from '../../src/types.js';
 
@@ -42,6 +42,7 @@ export interface ProductQuery {
   page?: number;
   pageSize?: number;
   featuredOnly?: boolean;
+  fulfillmentStatus?: ProductFulfillmentStatus;
   includeInactive?: boolean;
   ids?: string[];
 }

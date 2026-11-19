@@ -6,7 +6,7 @@ import {
 import { api } from '../services/api';
 import { useCart } from '../context/CartContext';
 import { nextProductImage, productImageCandidates } from '../services/images';
-import type { Product, Business } from '../types';
+import { fulfillmentStatusLabel, type Product, type Business } from '../types';
 
 interface ProductDetailViewProps {
   productId: string;
@@ -166,7 +166,11 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ productId,
                 <Clock className="w-4 h-4 text-[#FF6A00] shrink-0" />
                 <div>
                   <div className="font-semibold text-[#222222]">Delivery Time</div>
-                  <div className="text-[11px] text-[#777777]">{product.shippingTimeDays}</div>
+                  <div className="text-[11px] text-[#777777]">
+                    {product.estimatedDeliveryDays
+                      ? `${product.estimatedDeliveryDays} days (estimated)`
+                      : product.shippingTimeDays}
+                  </div>
                 </div>
               </div>
             </div>
@@ -209,6 +213,18 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ productId,
               <h1 className="text-xl sm:text-2xl font-extrabold text-[#222222] tracking-tight leading-snug">
                 {product.title}
               </h1>
+              <div className="mt-2">
+                <span className={`inline-flex items-center gap-1 rounded px-2 py-1 text-[10px] font-bold ${
+                  product.fulfillmentStatus === 'requires_shipping_import'
+                    ? 'bg-[#FFF3E8] text-[#C25A00]'
+                    : 'bg-emerald-50 text-[#18794E]'
+                }`}>
+                  {product.fulfillmentStatus === 'requires_shipping_import'
+                    ? <Truck className="w-3 h-3" />
+                    : <Check className="w-3 h-3" />}
+                  {fulfillmentStatusLabel(product.fulfillmentStatus)}
+                </span>
+              </div>
               <div className="flex items-center gap-3 text-xs text-[#777777] mt-2">
                 <div className="flex items-center text-[#F5A623]">
                   <Star className="w-3.5 h-3.5 fill-current" />

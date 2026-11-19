@@ -1,7 +1,8 @@
 import { Pool, type PoolClient } from 'pg';
-import type {
-  Business, Product, Order, ChinaRequest, ShippingOrder, Category,
-  AdminActivityLog, EmailRecord, NotificationItem
+import {
+  normalizeEstimatedDeliveryDays, normalizeFulfillmentStatus,
+  type Business, type Product, type Order, type ChinaRequest, type ShippingOrder, type Category,
+  type AdminActivityLog, type EmailRecord, type NotificationItem
 } from '../../src/types.js';
 import {
   InsufficientStockError,
@@ -90,6 +91,8 @@ function mapProduct(row: Row): Product {
     salesCount: row.sales_count,
     shippingOrigin: row.shipping_origin,
     shippingTimeDays: row.shipping_time_days,
+    fulfillmentStatus: normalizeFulfillmentStatus(row.fulfillment_status),
+    estimatedDeliveryDays: normalizeEstimatedDeliveryDays(row.estimated_delivery_days),
     specifications: row.specifications || {},
     isFeatured: row.is_featured,
     isActive: row.is_active,
@@ -479,6 +482,10 @@ export class PostgresStore implements Store {
 
     if (!query.includeInactive) where.push('is_active = TRUE');
     if (query.featuredOnly) where.push('is_featured = TRUE');
+    if (query.fulfillmentStatus) {
+      values.push(query.fulfillmentStatus);
+      where.push(`fulfillment_status = $${values.length}`);
+    }
     if (query.ids && query.ids.length) {
       values.push(query.ids);
       where.push(`id = ANY($${values.length})`);
@@ -556,13 +563,15 @@ export class PostgresStore implements Store {
 
   async createProduct(product: Product): Promise<Product> {
     const rows = await this.query(
-      `INSERT INTO products (id, business_id, seller_name, is_official, title, description, category, brand, price, original_price, stock, images, rating, reviews_count, sales_count, shipping_origin, shipping_time_days, specifications, is_featured, is_active, created_at, updated_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22) RETURNING *`,
+      `INSERT INTO products (id, business_id, seller_name, is_official, title, description, category, brand, price, original_price, stock, images, rating, reviews_count, sales_count, shipping_origin, shipping_time_days, fulfillment_status, estimated_delivery_days, specifications, is_featured, is_active, created_at, updated_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24) RETURNING *`,
       [
         product.id, product.businessId, product.sellerName, product.isOfficial, product.title,
         product.description, product.category, product.brand, product.price,
         product.originalPrice ?? null, product.stock, product.images, product.rating,
         product.reviewsCount, product.salesCount, product.shippingOrigin, product.shippingTimeDays,
+        normalizeFulfillmentStatus(product.fulfillmentStatus),
+        normalizeEstimatedDeliveryDays(product.estimatedDeliveryDays),
         JSON.stringify(product.specifications || {}), product.isFeatured, product.isActive,
         product.createdAt, product.updatedAt,
       ],
@@ -576,15 +585,24 @@ export class PostgresStore implements Store {
       description: 'description', category: 'category', brand: 'brand', price: 'price',
       originalPrice: 'original_price', stock: 'stock', images: 'images', rating: 'rating',
       reviewsCount: 'reviews_count', salesCount: 'sales_count', shippingOrigin: 'shipping_origin',
-      shippingTimeDays: 'shipping_time_days', specifications: 'specifications', isFeatured: 'is_featured',
-      isActive: 'is_active',
+      shippingTimeDays: 'shipping_time_days', fulfillmentStatus: 'fulfillment_status',
+      estimatedDeliveryDays: 'estimated_delivery_days', specifications: 'specifications',
+      isFeatured: 'is_featured', isActive: 'is_active',
     };
     const sets: string[] = [];
     const values: any[] = [];
     for (const [key, column] of Object.entries(map)) {
       const value = (patch as any)[key];
       if (value !== undefined) {
-        values.push(key === 'specifications' ? JSON.stringify(value || {}) : value === '' ? null : value);
+        values.push(
+          key === 'fulfillmentStatus'
+            ? normalizeFulfillmentStatus(value)
+            : key === 'estimatedDeliveryDays'
+              ? normalizeEstimatedDeliveryDays(value)
+              : key === 'specifications'
+                ? JSON.stringify(value || {})
+                : value === '' ? null : value,
+        );
         sets.push(`${column} = $${values.length}`);
       }
     }
