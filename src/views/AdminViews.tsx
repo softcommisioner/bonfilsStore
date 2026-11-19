@@ -1022,7 +1022,7 @@ export const AdminViews: React.FC<AdminViewsProps> = ({ onNavigate }) => {
                     <div className="min-w-0">
                       <div className="text-xs font-bold text-white">{request.requestNumber} · {request.productName}</div>
                       <div className="text-[10px] text-[#666666]">
-                        {request.customerName} · {request.customerEmail} · {request.country} · qty {request.quantity}
+                        {request.customerName} · {request.whatsapp || request.customerPhone || request.customerEmail} · {request.country} · qty {request.quantity}
                       </div>
                     </div>
                     <div className="flex items-center gap-2">

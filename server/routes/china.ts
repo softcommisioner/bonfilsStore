@@ -9,6 +9,10 @@ import { asyncHandler, EMAIL_REGEX, normalizeEmail, toNumber } from './helpers.j
 
 const router = Router();
 
+function digitsOnly(value: string): string {
+  return value.replace(/\D/g, '');
+}
+
 const STATUSES: ChinaRequestStatus[] = [
   'REQUEST_RECEIVED', 'UNDER_REVIEW', 'CONTACTING_CUSTOMER', 'PRODUCT_SEARCHING', 'SUPPLIER_FOUND',
   'PRICE_NEGOTIATION', 'CUSTOMER_CONFIRMATION', 'PAYMENT_PENDING', 'PURCHASED', 'SHIPPING',
@@ -22,13 +26,17 @@ router.post('/', asyncHandler(async (req, res) => {
   }
 
   const body = req.body || {};
-  const customerEmail = normalizeEmail(body.customerEmail || req.user?.email);
-  if (!EMAIL_REGEX.test(customerEmail)) {
-    return res.status(400).json({ error: 'A valid email address is required.' });
+  const contact = String(body.whatsapp || body.customerPhone || '').trim();
+  const phoneDigits = digitsOnly(contact);
+  const requestedEmail = normalizeEmail(body.customerEmail || req.user?.email);
+  const hasEmail = EMAIL_REGEX.test(requestedEmail);
+  if (!phoneDigits && !hasEmail) {
+    return res.status(400).json({ error: 'A Phone / WhatsApp number is required.' });
   }
   if (!body.productName || !body.quantity) {
     return res.status(400).json({ error: 'Product name and quantity are required.' });
   }
+  const customerEmail = hasEmail ? requestedEmail : `${phoneDigits}@whatsapp`;
 
   const store = getStore();
   const sequence = await store.nextCounter('china-request', 100);
@@ -49,14 +57,14 @@ router.post('/', asyncHandler(async (req, res) => {
     estimatedBudget: body.estimatedBudget !== undefined ? toNumber(body.estimatedBudget, 0) : undefined,
     images: Array.isArray(body.images) ? body.images.slice(0, 8) : [],
     referenceUrl: body.referenceUrl,
-    customerName: String(body.customerName || req.user?.name || 'Customer').trim(),
+    customerName: String(body.customerName || req.user?.name || 'WhatsApp Customer').trim(),
     customerEmail,
-    customerPhone: String(body.customerPhone || '').trim(),
-    whatsapp: body.whatsapp,
+    customerPhone: contact,
+    whatsapp: contact || undefined,
     country: String(body.country || req.user?.country || 'Rwanda').trim(),
     city: String(body.city || req.user?.city || 'Kigali').trim(),
     deliveryAddress: String(body.deliveryAddress || '').trim(),
-    preferredContactMethod: ['email', 'whatsapp', 'phone'].includes(body.preferredContactMethod) ? body.preferredContactMethod : 'email',
+    preferredContactMethod: ['email', 'whatsapp', 'phone'].includes(body.preferredContactMethod) ? body.preferredContactMethod : 'whatsapp',
     shippingMethod: ['air', 'sea', 'express'].includes(body.shippingMethod) ? body.shippingMethod : 'air',
     maxWaitingTime: ['15_days', '30_days', '45_days', 'more_than_45_days'].includes(body.maxWaitingTime) ? body.maxWaitingTime : '30_days',
     preferredDeliveryPeriod: body.preferredDeliveryPeriod,
@@ -82,17 +90,19 @@ router.post('/', asyncHandler(async (req, res) => {
     targetId: created.id,
     details: `Sourcing request ${created.requestNumber} submitted for "${created.productName}".`,
   });
-  await sendEmail({
-    to: created.customerEmail,
-    subject: `BONFILS STORE - Sourcing request ${created.requestNumber} received`,
-    purpose: 'china_request',
-    html: chinaRequestEmailTemplate(created),
-  });
+  if (hasEmail) {
+    await sendEmail({
+      to: created.customerEmail,
+      subject: `BONFILS STORE - Sourcing request ${created.requestNumber} received`,
+      purpose: 'china_request',
+      html: chinaRequestEmailTemplate(created),
+    });
+  }
 
   res.json({
     success: true,
     request: created,
-    message: 'Your sourcing request has been received. Our China team will send a quotation within 24-48 hours.',
+    message: 'Your sourcing request has been saved. Continue on WhatsApp for more information.',
   });
 }));
 

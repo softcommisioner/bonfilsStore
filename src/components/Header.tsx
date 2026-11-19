@@ -87,7 +87,7 @@ export const Header: React.FC<HeaderProps> = ({
             </div>
           </button>
 
-          {/* Central Search Bar (Alibaba-inspired orange search box) */}
+          {/* Central Search Bar */}
           <div className="flex-1 max-w-2xl hidden md:block">
             <div className="flex items-center border-2 border-[#FF6A00] rounded-lg overflow-hidden bg-white shadow-xs focus-within:ring-2 focus-within:ring-[#FF6A00]/20 transition-all">
               <div className="px-3 py-2 text-xs font-medium text-[#666666] bg-[#F7F7F7] border-r border-[#E5E5E5] shrink-0">
