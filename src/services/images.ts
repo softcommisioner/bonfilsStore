@@ -40,6 +40,65 @@ function normalizeImageUrl(raw: unknown): string | null {
   return value.startsWith('/') ? value : `/${value}`;
 }
 
+const MAX_IMAGE_DIMENSION = 1200;
+const IMAGE_QUALITY = 0.85;
+const MAX_COMPRESSED_BYTES = 2 * 1024 * 1024;
+
+function loadImage(src: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error('Could not read that image.'));
+    image.src = src;
+  });
+}
+
+function blobToDataUrl(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(new Error('Could not compress that image.'));
+    reader.readAsDataURL(blob);
+  });
+}
+
+async function renderCompressedBlob(image: HTMLImageElement, maxDimension: number, quality: number): Promise<Blob> {
+  const sourceWidth = image.naturalWidth || image.width;
+  const sourceHeight = image.naturalHeight || image.height;
+  if (!sourceWidth || !sourceHeight) throw new Error('Could not read that image.');
+  const scale = Math.min(1, maxDimension / Math.max(sourceWidth, sourceHeight));
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.max(1, Math.round(sourceWidth * scale));
+  canvas.height = Math.max(1, Math.round(sourceHeight * scale));
+  const context = canvas.getContext('2d');
+  if (!context) throw new Error('Could not compress that image.');
+  context.drawImage(image, 0, 0, canvas.width, canvas.height);
+  const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, 'image/webp', quality));
+  if (!blob) throw new Error('Could not compress that image.');
+  return blob;
+}
+
+export async function compressImageFile(file: File): Promise<string> {
+  if (!file.type.startsWith('image/')) throw new Error('Please choose an image file.');
+  const objectUrl = URL.createObjectURL(file);
+  try {
+    const image = await loadImage(objectUrl);
+    const attempts = [
+      { maxDimension: MAX_IMAGE_DIMENSION, quality: IMAGE_QUALITY },
+      { maxDimension: 1000, quality: 0.83 },
+      { maxDimension: 800, quality: 0.8 },
+    ];
+    let compressed: Blob | null = null;
+    for (const attempt of attempts) {
+      compressed = await renderCompressedBlob(image, attempt.maxDimension, attempt.quality);
+      if (compressed.size <= MAX_COMPRESSED_BYTES) return blobToDataUrl(compressed);
+    }
+    return blobToDataUrl(compressed!);
+  } finally {
+    URL.revokeObjectURL(objectUrl);
+  }
+}
+
 /** Every image URL the API gave us, in order, de-duplicated. */
 export function productImageUrls(product: ProductImageSource | null | undefined): string[] {
   if (!product) return [];

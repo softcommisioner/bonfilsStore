@@ -4,6 +4,7 @@ import {
   Trash2, Edit, Truck, ArrowLeftRight, CheckCircle2, AlertCircle, Smartphone
 } from 'lucide-react';
 import { fulfillmentStatusLabel } from '../types';
+import { compressImageFile } from '../services/images';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../services/api';
 import type { Product, Order, Business, Category } from '../types';
@@ -44,6 +45,9 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({ onNavi
   const [prodOriginalPrice, setProdOriginalPrice] = useState('');
   const [prodStock, setProdStock] = useState('20');
   const [prodImage, setProdImage] = useState('');
+  const [prodImagePreview, setProdImagePreview] = useState('');
+  const [imageUploading, setImageUploading] = useState(false);
+  const [imageError, setImageError] = useState('');
   const [shippingTime, setShippingTime] = useState('1 - 2 Days');
   const [fulfillmentStatus, setFulfillmentStatus] = useState<Product['fulfillmentStatus']>('available_now');
   const [estimatedDeliveryDays, setEstimatedDeliveryDays] = useState('');
@@ -109,6 +113,8 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({ onNavi
     setProdOriginalPrice('');
     setProdStock('20');
     setProdImage('');
+    setProdImagePreview('');
+    setImageError('');
     setShippingTime('1 - 2 Days');
     setFulfillmentStatus('available_now');
     setEstimatedDeliveryDays('');
@@ -125,14 +131,42 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({ onNavi
     setProdOriginalPrice(p.originalPrice ? p.originalPrice.toString() : '');
     setProdStock(p.stock.toString());
     setProdImage(p.images[0] || '');
+    setProdImagePreview(p.images[0] || '');
+    setImageError('');
     setShippingTime(p.shippingTimeDays);
     setFulfillmentStatus(p.fulfillmentStatus || 'available_now');
     setEstimatedDeliveryDays(p.estimatedDeliveryDays ? String(p.estimatedDeliveryDays) : '');
     setIsProductModalOpen(true);
   };
 
+  const handleProductImageChange = async (file?: File) => {
+    if (!file) return;
+    setFormError('');
+    setImageError('');
+    setImageUploading(true);
+    const objectUrl = URL.createObjectURL(file);
+    setProdImagePreview(objectUrl);
+    try {
+      const dataUrl = await compressImageFile(file);
+      const result = await api.uploadImage(dataUrl, file.name.replace(/\.[^.]+$/, '') + '.webp', 'products');
+      setProdImage(result.url);
+      setProdImagePreview(result.url);
+    } catch (err: any) {
+      setProdImage('');
+      setProdImagePreview('');
+      setImageError(err.message || 'Could not upload image.');
+    } finally {
+      if (objectUrl.startsWith('blob:')) URL.revokeObjectURL(objectUrl);
+      setImageUploading(false);
+    }
+  };
+
   const handleSaveProduct = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (imageUploading) {
+      setFormError('Wait for the image upload to finish.');
+      return;
+    }
     try {
       const payload = {
         title: prodTitle,
@@ -697,14 +731,32 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({ onNavi
               </div>
 
               <div>
-                <label className="block font-semibold text-[#444444] mb-1">Image URL</label>
+                <label className="block font-semibold text-[#444444] mb-1">Product Image</label>
                 <input
-                  type="text"
-                  value={prodImage}
-                  onChange={(e) => setProdImage(e.target.value)}
-                  placeholder="URL or leave empty for default studio asset"
-                  className="w-full px-3 py-2 border border-[#E5E5E5] rounded-lg focus:border-[#FF6A00] focus:outline-none"
+                  type="file"
+                  accept="image/*"
+                  disabled={imageUploading}
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) void handleProductImageChange(file);
+                    e.target.value = '';
+                  }}
+                  className="w-full px-3 py-2 text-xs border border-[#E5E5E5] rounded-lg focus:border-[#FF6A00] focus:outline-none file:mr-3 file:px-3 file:py-1 file:rounded-md file:border-0 file:bg-[#FF6A00] file:text-white file:cursor-pointer disabled:opacity-60"
                 />
+                {imageError && <p className="mt-1 text-[11px] text-red-600">{imageError}</p>}
+                {(prodImagePreview || prodImage) && (
+                  <div className="mt-2 flex items-center gap-3">
+                    <img
+                      src={prodImagePreview || prodImage}
+                      alt="Product image preview"
+                      referrerPolicy="no-referrer"
+                      className="w-20 h-20 rounded-lg object-cover border border-[#E5E5E5]"
+                    />
+                    <span className="text-[11px] text-[#777777]">
+                      {imageUploading ? 'Processing…' : prodImage ? 'Image ready' : 'Preview'}
+                    </span>
+                  </div>
+                )}
               </div>
 
               <div>

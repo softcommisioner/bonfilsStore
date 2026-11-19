@@ -8,7 +8,7 @@ import {
   DEFAULT_USD_TO_RWF_RATE, formatRwf, fulfillmentStatusLabel, normalizeUsdToRwfRate,
 } from '../types';
 import { api } from '../services/api';
-import { resolveProductImage } from '../services/images';
+import { compressImageFile, resolveProductImage } from '../services/images';
 import type {
   AdminActivityLog, AdminStats, Business, Category, ChinaRequest, Order, Product, User,
 } from '../types';
@@ -218,6 +218,7 @@ export const AdminViews: React.FC<AdminViewsProps> = ({ onNavigate }) => {
   const [toast, setToast] = useState('');
   const [productSearch, setProductSearch] = useState('');
   const [productDraft, setProductDraft] = useState<ProductDraft | null>(null);
+  const [productImagePreview, setProductImagePreview] = useState('');
   const [userDraft, setUserDraft] = useState<any>(null);
   const [businessDraft, setBusinessDraft] = useState<any>(null);
   const [categoryDraft, setCategoryDraft] = useState<any>(null);
@@ -368,6 +369,7 @@ export const AdminViews: React.FC<AdminViewsProps> = ({ onNavigate }) => {
         await api.createAdminProduct(payload);
         flash('Product created.');
       }
+      setProductImagePreview('');
       setProductDraft(null);
       await loadAll();
     } catch (err: any) {
@@ -413,19 +415,19 @@ export const AdminViews: React.FC<AdminViewsProps> = ({ onNavigate }) => {
     if (!productDraft) return;
     setBusy(true);
     setError('');
+    const objectUrl = URL.createObjectURL(file);
+    setProductImagePreview(objectUrl);
     try {
-      const dataUrl = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(String(reader.result));
-        reader.onerror = () => reject(new Error('Could not read that file.'));
-        reader.readAsDataURL(file);
-      });
-      const result = await api.adminUploadImage(dataUrl, file.name, 'products');
+      const dataUrl = await compressImageFile(file);
+      const result = await api.adminUploadImage(dataUrl, file.name.replace(/\.[^.]+$/, '') + '.webp', 'products');
       setProductDraft({ ...productDraft, images: [...productDraft.images, result.url].slice(0, 8) });
+      setProductImagePreview(result.url);
       flash('Image uploaded.');
     } catch (err: any) {
       reportError(err, 'Image upload failed.');
+      setProductImagePreview('');
     } finally {
+      if (objectUrl.startsWith('blob:')) URL.revokeObjectURL(objectUrl);
       setBusy(false);
     }
   };
@@ -727,7 +729,10 @@ export const AdminViews: React.FC<AdminViewsProps> = ({ onNavigate }) => {
                 </div>
                 <button
                   className={primaryButton}
-                  onClick={() => setProductDraft({ ...emptyProductDraft, category: categories[0]?.name || '' })}
+                  onClick={() => {
+                    setProductImagePreview('');
+                    setProductDraft({ ...emptyProductDraft, category: categories[0]?.name || '' });
+                  }}
                 >
                   <Plus className="w-3.5 h-3.5 mr-1 inline" />New product
                 </button>
@@ -788,27 +793,30 @@ export const AdminViews: React.FC<AdminViewsProps> = ({ onNavigate }) => {
                       <td className="py-2 text-right whitespace-nowrap">
                         <button
                           className="text-[#888888] hover:text-[#FF6A00] mr-3 cursor-pointer"
-                          onClick={() => setProductDraft({
-                            id: product.id,
-                            title: product.title,
-                            description: product.description,
-                            category: product.category,
-                            brand: product.brand || '',
-                            price: String(product.price),
-                            originalPrice: product.originalPrice ? String(product.originalPrice) : '',
-                            stock: String(product.stock),
-                            businessId: product.businessId,
-                            images: [...product.images],
-                            shippingOrigin: product.shippingOrigin,
-                            shippingTimeDays: product.shippingTimeDays,
-                            fulfillmentStatus: product.fulfillmentStatus || 'available_now',
-                            estimatedDeliveryDays: product.estimatedDeliveryDays ? String(product.estimatedDeliveryDays) : '',
-                            isFeatured: product.isFeatured,
-                            isActive: product.isActive,
-                            specifications: Object.entries(product.specifications || {})
-                              .map(([key, value]) => `${key}: ${value}`)
-                              .join('\n'),
-                          })}
+                          onClick={() => {
+                            setProductImagePreview(product.images[0] || '');
+                            setProductDraft({
+                              id: product.id,
+                              title: product.title,
+                              description: product.description,
+                              category: product.category,
+                              brand: product.brand || '',
+                              price: String(product.price),
+                              originalPrice: product.originalPrice ? String(product.originalPrice) : '',
+                              stock: String(product.stock),
+                              businessId: product.businessId,
+                              images: [...product.images],
+                              shippingOrigin: product.shippingOrigin,
+                              shippingTimeDays: product.shippingTimeDays,
+                              fulfillmentStatus: product.fulfillmentStatus || 'available_now',
+                              estimatedDeliveryDays: product.estimatedDeliveryDays ? String(product.estimatedDeliveryDays) : '',
+                              isFeatured: product.isFeatured,
+                              isActive: product.isActive,
+                              specifications: Object.entries(product.specifications || {})
+                                .map(([key, value]) => `${key}: ${value}`)
+                                .join('\n'),
+                            });
+                          }}
                         >
                           <Pencil className="w-3.5 h-3.5" />
                         </button>
@@ -1178,7 +1186,7 @@ export const AdminViews: React.FC<AdminViewsProps> = ({ onNavigate }) => {
       </main>
 
       {productDraft && (
-        <Modal title={productDraft.id ? 'Edit product' : 'New product'} onClose={() => setProductDraft(null)} wide>
+        <Modal title={productDraft.id ? 'Edit product' : 'New product'} onClose={() => { setProductImagePreview(''); setProductDraft(null); }} wide>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="sm:col-span-2">
               <label className={labelClass}>Title</label>
@@ -1270,27 +1278,37 @@ export const AdminViews: React.FC<AdminViewsProps> = ({ onNavigate }) => {
                     <img src={image} alt="" className="w-14 h-14 rounded object-cover border border-[#2E2E2E]" />
                     <button
                       className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-red-500 text-white text-[10px] cursor-pointer"
-                      onClick={() => setProductDraft({ ...productDraft, images: productDraft.images.filter((_, i) => i !== index) })}
+                      onClick={() => {
+                        setProductImagePreview('');
+                        setProductDraft({ ...productDraft, images: productDraft.images.filter((_, i) => i !== index) });
+                      }}
                     >
                       ×
                     </button>
                   </div>
                 ))}
-                {!productDraft.images.length && <span className="text-[11px] text-[#666666]">No images yet.</span>}
+                {!productDraft.images.length && !productImagePreview && <span className="text-[11px] text-[#666666]">No images yet.</span>}
+                {productImagePreview && (
+                  <div className="relative">
+                    <img src={productImagePreview} alt="Upload preview" className="w-14 h-14 rounded object-cover border border-[#FF6A00]" />
+                    {busy && <span className="absolute inset-0 flex items-center justify-center rounded bg-black/50 text-[9px] text-white">Processing…</span>}
+                  </div>
+                )}
               </div>
               <label className={ghostButton}>
                 <Upload className="w-3.5 h-3.5 mr-1 inline" />Upload image
                 <input
                   type="file"
-                  accept="image/png,image/jpeg,image/webp"
+                  accept="image/*"
                   className="hidden"
-                  onChange={e => { const file = e.target.files?.[0]; if (file) uploadProductImage(file); e.target.value = ''; }}
+                  disabled={busy}
+                  onChange={e => { const file = e.target.files?.[0]; if (file) void uploadProductImage(file); e.target.value = ''; }}
                 />
               </label>
             </div>
           </div>
           <div className="flex justify-end gap-2 pt-2">
-            <button className={ghostButton} onClick={() => setProductDraft(null)}>Cancel</button>
+            <button className={ghostButton} onClick={() => { setProductImagePreview(''); setProductDraft(null); }}>Cancel</button>
             <button className={primaryButton} disabled={busy} onClick={saveProduct}>
               {busy ? 'Saving…' : 'Save product'}
             </button>
