@@ -92,7 +92,7 @@ function mapProduct(row: Row): Product {
     businessId: row.business_id,
     sellerName: row.seller_name,
     isOfficial: row.is_official,
-    title: row.title,
+    title: row.title || row.name || '',
     description: row.description,
     category: row.category,
     brand: row.brand,
@@ -676,11 +676,12 @@ export class PostgresStore implements Store {
   }
 
   async createProduct(product: Product): Promise<Product> {
+    const productName = product.title || '';
     const rows = await this.query(
-      `INSERT INTO products (id, business_id, seller_name, is_official, title, description, category, brand, price, original_price, stock, images, rating, reviews_count, sales_count, shipping_origin, shipping_time_days, fulfillment_status, estimated_delivery_days, specifications, is_featured, is_active, created_at, updated_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24) RETURNING *`,
+      `INSERT INTO products (id, business_id, seller_name, is_official, title, name, description, category, brand, price, original_price, stock, images, rating, reviews_count, sales_count, shipping_origin, shipping_time_days, fulfillment_status, estimated_delivery_days, specifications, is_featured, is_active, created_at, updated_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25) RETURNING *`,
       [
-        product.id, product.businessId, product.sellerName, product.isOfficial, product.title,
+        product.id, product.businessId, product.sellerName, product.isOfficial, productName, productName,
         product.description, product.category, product.brand, product.price,
         product.originalPrice ?? null, product.stock, product.images, product.rating,
         product.reviewsCount, product.salesCount, product.shippingOrigin, product.shippingTimeDays,
@@ -715,10 +716,16 @@ export class PostgresStore implements Store {
               ? normalizeEstimatedDeliveryDays(value)
               : key === 'specifications'
                 ? JSON.stringify(value || {})
-                : value === '' ? null : value,
+                : key === 'title'
+                  ? String(value || '')
+                  : value === '' ? null : value,
         );
         sets.push(`${column} = $${values.length}`);
       }
+    }
+    if (patch.title !== undefined) {
+      values.push(patch.title || '');
+      sets.push(`name = $${values.length}`);
     }
     if (!sets.length) return this.findProduct(id);
     values.push(id);
