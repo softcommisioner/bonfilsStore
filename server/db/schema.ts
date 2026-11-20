@@ -91,6 +91,7 @@ CREATE TABLE IF NOT EXISTS products (
   is_official        BOOLEAN NOT NULL DEFAULT FALSE,
   title              TEXT NOT NULL,
   name               TEXT NOT NULL DEFAULT '',
+  slug               TEXT NOT NULL DEFAULT '',
   description        TEXT NOT NULL DEFAULT '',
   category           TEXT NOT NULL DEFAULT 'Other',
   brand              TEXT NOT NULL DEFAULT '',
@@ -260,7 +261,6 @@ ALTER TABLE businesses ADD COLUMN IF NOT EXISTS bank_account_number TEXT;
 ALTER TABLE businesses ADD COLUMN IF NOT EXISTS whatsapp_number TEXT;
 ALTER TABLE businesses ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
 UPDATE businesses SET business_name = COALESCE(business_name, name, 'Bonfils Store Official');
-ALTER TABLE businesses ALTER COLUMN business_name DROP NOT NULL;
 
 ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS usd_to_rwf_rate NUMERIC(12,2) NOT NULL DEFAULT 1350;
 ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
@@ -279,6 +279,7 @@ ALTER TABLE products ADD COLUMN IF NOT EXISTS seller_name TEXT NOT NULL DEFAULT 
 ALTER TABLE products ADD COLUMN IF NOT EXISTS is_official BOOLEAN NOT NULL DEFAULT FALSE;
 ALTER TABLE products ADD COLUMN IF NOT EXISTS title TEXT NOT NULL DEFAULT '';
 ALTER TABLE products ADD COLUMN IF NOT EXISTS name TEXT NOT NULL DEFAULT '';
+ALTER TABLE products ADD COLUMN IF NOT EXISTS slug TEXT NOT NULL DEFAULT '';
 ALTER TABLE products ADD COLUMN IF NOT EXISTS description TEXT NOT NULL DEFAULT '';
 ALTER TABLE products ADD COLUMN IF NOT EXISTS category TEXT NOT NULL DEFAULT 'Other';
 ALTER TABLE products ADD COLUMN IF NOT EXISTS brand TEXT NOT NULL DEFAULT '';
@@ -299,7 +300,6 @@ ALTER TABLE products ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT
 ALTER TABLE products ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
 ALTER TABLE products ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
 UPDATE products SET name = COALESCE(name, title) WHERE name IS NULL;
-ALTER TABLE products ALTER COLUMN name DROP NOT NULL;
 
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS order_number TEXT NOT NULL DEFAULT '';
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS customer_id TEXT NOT NULL DEFAULT '';
@@ -487,6 +487,41 @@ CREATE UNIQUE INDEX IF NOT EXISTS shipping_orders_tracking_key ON shipping_order
 CREATE INDEX IF NOT EXISTS activity_logs_timestamp_idx ON activity_logs (timestamp DESC);
 CREATE INDEX IF NOT EXISTS notifications_user_idx ON notifications (user_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS emails_sent_idx ON emails (sent_at DESC);
+
+DO $nullable_columns$
+DECLARE
+  legacy_column RECORD;
+BEGIN
+  FOR legacy_column IN
+    SELECT c.table_name, c.column_name
+    FROM information_schema.columns c
+    JOIN information_schema.tables t
+      ON t.table_schema = c.table_schema
+     AND t.table_name = c.table_name
+    WHERE c.table_schema = 'public'
+      AND t.table_type = 'BASE TABLE'
+      AND c.is_nullable = 'NO'
+      AND c.is_generated = 'NEVER'
+      AND c.is_identity = 'NO'
+      AND c.column_name <> 'id'
+      AND NOT EXISTS (
+        SELECT 1
+        FROM information_schema.table_constraints tc
+        JOIN information_schema.key_column_usage kcu
+          ON kcu.constraint_catalog = tc.constraint_catalog
+         AND kcu.constraint_schema = tc.constraint_schema
+         AND kcu.constraint_name = tc.constraint_name
+         AND kcu.table_schema = tc.table_schema
+         AND kcu.table_name = tc.table_name
+        WHERE tc.constraint_type = 'PRIMARY KEY'
+          AND tc.table_schema = c.table_schema
+          AND tc.table_name = c.table_name
+          AND kcu.column_name = c.column_name
+      )
+  LOOP
+    EXECUTE format('ALTER TABLE %I.%I ALTER COLUMN %I DROP NOT NULL', 'public', legacy_column.table_name, legacy_column.column_name);
+  END LOOP;
+END $nullable_columns$;
 
 INSERT INTO app_settings (id, usd_to_rwf_rate)
 VALUES ('global', 1350)

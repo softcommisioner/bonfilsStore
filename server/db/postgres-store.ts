@@ -17,6 +17,20 @@ type Row = Record<string, any>;
 const num = (value: any): number => (value === null || value === undefined ? 0 : Number(value));
 const ts = (value: any): string => (value instanceof Date ? value.toISOString() : new Date(value).toISOString());
 
+function slugify(value: string): string {
+  return value
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 60) || 'item';
+}
+
+function productSlug(title: string, id: string): string {
+  const suffix = (id || '').toLowerCase().replace(/[^a-z0-9]+/g, '') || Math.random().toString(36).slice(2, 8);
+  return `${slugify(title)}-${suffix}`;
+}
+
 function mapUser(row: Row): UserRecord {
   return {
     id: row.id,
@@ -677,12 +691,13 @@ export class PostgresStore implements Store {
 
   async createProduct(product: Product): Promise<Product> {
     const productName = product.title || '';
+    const productSlugValue = productSlug(productName, product.id);
     const rows = await this.query(
-      `INSERT INTO products (id, business_id, seller_name, is_official, title, name, description, category, brand, price, original_price, stock, images, rating, reviews_count, sales_count, shipping_origin, shipping_time_days, fulfillment_status, estimated_delivery_days, specifications, is_featured, is_active, created_at, updated_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25) RETURNING *`,
+      `INSERT INTO products (id, business_id, seller_name, is_official, title, name, slug, description, category, brand, price, original_price, stock, images, rating, reviews_count, sales_count, shipping_origin, shipping_time_days, fulfillment_status, estimated_delivery_days, specifications, is_featured, is_active, created_at, updated_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26) RETURNING *`,
       [
         product.id, product.businessId, product.sellerName, product.isOfficial, productName, productName,
-        product.description, product.category, product.brand, product.price,
+        productSlugValue, product.description, product.category, product.brand, product.price,
         product.originalPrice ?? null, product.stock, product.images, product.rating,
         product.reviewsCount, product.salesCount, product.shippingOrigin, product.shippingTimeDays,
         normalizeFulfillmentStatus(product.fulfillmentStatus),
@@ -724,8 +739,11 @@ export class PostgresStore implements Store {
       }
     }
     if (patch.title !== undefined) {
-      values.push(patch.title || '');
+      const title = patch.title || '';
+      values.push(title);
       sets.push(`name = $${values.length}`);
+      values.push(productSlug(title, id));
+      sets.push(`slug = $${values.length}`);
     }
     if (!sets.length) return this.findProduct(id);
     values.push(id);
