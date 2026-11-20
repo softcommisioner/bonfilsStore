@@ -92,6 +92,15 @@ function Modal({ title, onClose, children, wide }: {
   );
 }
 
+const OFFICIAL_STORE_NAME = 'Bonfils Store Official';
+
+function defaultStoreId(businesses: Business[]): string {
+  return businesses.find(business => business.name.toLowerCase() === OFFICIAL_STORE_NAME.toLowerCase())?.id
+    || businesses.find(business => business.type === 'official')?.id
+    || businesses[0]?.id
+    || '';
+}
+
 const emptyProductDraft = {
   id: '',
   title: '',
@@ -352,6 +361,14 @@ export const AdminViews: React.FC<AdminViewsProps> = ({ onNavigate }) => {
       whatsappNumber: selected.whatsappNumber || '',
     });
   }, [businesses, paymentBusinessId]);
+
+  useEffect(() => {
+    const draft = productDraft;
+    if (!businesses.length || !draft) return;
+    if (draft.businessId && businesses.some(business => business.id === draft.businessId)) return;
+    const fallback = defaultStoreId(businesses);
+    if (fallback) setProductDraft({ ...draft, businessId: fallback });
+  }, [businesses, productDraft]);
 
   useEffect(() => {
     if (!admin || tab !== 'products') return;
@@ -786,7 +803,11 @@ export const AdminViews: React.FC<AdminViewsProps> = ({ onNavigate }) => {
                   className={primaryButton}
                   onClick={() => {
                     setProductImagePreview('');
-                    setProductDraft({ ...emptyProductDraft, category: categories[0]?.name || 'Other' });
+                    setProductDraft({
+                      ...emptyProductDraft,
+                      businessId: defaultStoreId(businesses) || emptyProductDraft.businessId,
+                      category: categories[0]?.name || 'Other',
+                    });
                   }}
                 >
                   <Plus className="w-3.5 h-3.5 mr-1 inline" />New product
@@ -1339,6 +1360,7 @@ export const AdminViews: React.FC<AdminViewsProps> = ({ onNavigate }) => {
             <div>
               <label className={labelClass}>Store</label>
               <select className={inputClass} value={productDraft.businessId} onChange={e => setProductDraft({ ...productDraft, businessId: e.target.value })}>
+                {businesses.length === 0 && <option value="">No stores available</option>}
                 {businesses.map(business => <option key={business.id} value={business.id}>{business.name}</option>)}
               </select>
             </div>

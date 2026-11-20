@@ -3,10 +3,10 @@ import type { Store, UserRecord } from '../db/index.js';
 import { getStore, initStore } from '../db/index.js';
 import { hashPassword } from '../security.js';
 import { hasSuperAdminRole } from '../middleware.js';
-import type { Category, Product } from '../../src/types.js';
+import type { Business, Category, Product } from '../../src/types.js';
 import {
-  buildDemoUser, CATEGORY_RENAMES, demoUsers, remapCategoryImageUrls, RETIRED_CATEGORIES,
-  seedBusinesses, seedCategories, seedProducts,
+  buildDemoUser, CATEGORY_RENAMES, demoUsers, OFFICIAL_STORE_ID, OFFICIAL_STORE_NAME,
+  remapCategoryImageUrls, RETIRED_CATEGORIES, seedBusinesses, seedCategories, seedProducts,
 } from './catalog.js';
 
 function log(message: string) {
@@ -16,7 +16,7 @@ function log(message: string) {
 const DEMO_PAYMENT_SANITIZATION_COUNTER = 'demo-payment-details-sanitized-v1';
 
 const DEMO_PAYMENT_NAME_MATCHERS: Record<string, string[]> = {
-  'BIZ-001': ['bonfils'],
+  [OFFICIAL_STORE_ID]: ['bonfils'],
   'BIZ-002': ['rukundo'],
   'BIZ-003': ['kevin'],
   'BIZ-004': ['abc imports'],
@@ -158,7 +158,7 @@ export async function ensureSuperAdmin(store: Store): Promise<UserRecord | null>
     accountType: existing?.accountType || 'customer',
     isVerified: true,
     status: 'active',
-    businessId: existing?.businessId || 'BIZ-001',
+    businessId: existing?.businessId || OFFICIAL_STORE_ID,
     passwordHash: hash,
     passwordSalt: salt,
     createdAt: existing?.createdAt || new Date().toISOString(),
@@ -178,6 +178,24 @@ async function seedCategoriesIfMissing(store: Store) {
     }
   }
   log(`categories ready (${created} created, ${seedCategories.length} total)`);
+}
+
+export async function ensureOfficialStore(store: Store): Promise<Business> {
+  const officialSeed = seedBusinesses.find(business => business.id === OFFICIAL_STORE_ID)!;
+  const existing = await store.findBusiness(OFFICIAL_STORE_ID);
+  if (!existing) {
+    const created = await store.createBusiness(officialSeed);
+    log(`official store created: ${OFFICIAL_STORE_NAME}`);
+    return created;
+  }
+  const patch: Partial<Business> = {};
+  if (existing.name !== OFFICIAL_STORE_NAME) patch.name = OFFICIAL_STORE_NAME;
+  if (existing.type !== 'official') patch.type = 'official';
+  if (Object.keys(patch).length) {
+    const updated = await store.updateBusiness(existing.id, patch);
+    if (updated) return updated;
+  }
+  return existing;
 }
 
 async function seedBusinessesIfMissing(store: Store) {
@@ -252,6 +270,7 @@ async function seedProductsIfMissing(store: Store) {
 }
 
 export async function runSeed(store: Store = getStore()): Promise<void> {
+  await ensureOfficialStore(store);
   await ensureSuperAdmin(store);
   await migrateCategoryStructure(store);
   await seedCategoriesIfMissing(store);

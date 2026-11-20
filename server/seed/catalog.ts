@@ -2,6 +2,9 @@ import type { Business, Category, Product, ProductFulfillmentStatus, UserRole } 
 import type { UserRecord } from '../db/index.js';
 import { CATEGORY_IMAGES, PRODUCT_IMAGES } from './images.js';
 
+export const OFFICIAL_STORE_ID = 'BIZ-001';
+export const OFFICIAL_STORE_NAME = 'Bonfils Store Official';
+
 const NOW = Date.parse('2026-01-05T09:00:00.000Z');
 const day = 24 * 60 * 60 * 1000;
 
@@ -424,7 +427,7 @@ const RAW_PRODUCTS: ProductSeed[] = [
 
 function buildProduct(seed: ProductSeed): Product {
   const seller: Record<string, string> = {
-    'BIZ-001': 'Bonfils Official Store',
+    [OFFICIAL_STORE_ID]: OFFICIAL_STORE_NAME,
     'BIZ-002': 'URUKUNDO SHOP',
     'BIZ-003': 'KEVIN ELECTRONICS',
     'BIZ-004': 'ABC IMPORTS',
@@ -433,8 +436,8 @@ function buildProduct(seed: ProductSeed): Product {
   return {
     id: seed.id,
     businessId: seed.businessId,
-    sellerName: seller[seed.businessId] || 'Bonfils Official Store',
-    isOfficial: seed.businessId === 'BIZ-001',
+    sellerName: seller[seed.businessId] || OFFICIAL_STORE_NAME,
+    isOfficial: seed.businessId === OFFICIAL_STORE_ID,
     title: seed.title,
     description: seed.description,
     category: seed.category,
@@ -465,7 +468,7 @@ export const seedProducts: Product[] = RAW_PRODUCTS.map(buildProduct);
 
 export const seedBusinesses: Business[] = [
   {
-    id: 'BIZ-001', ownerId: '', name: 'Bonfils Official Store', type: 'official',
+    id: OFFICIAL_STORE_ID, ownerId: '', name: OFFICIAL_STORE_NAME, type: 'official',
     description: 'Direct procurement and guaranteed original products from Bonfils International Logistics & China Sourcing Hub.',
     phone: '+250788100200', email: 'official@bonfilsstore.com', country: 'Rwanda', city: 'Kigali',
     rating: 4.9, reviewsCount: 342, totalProducts: 0, totalSales: 1250, isVerified: true, status: 'active',

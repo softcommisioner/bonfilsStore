@@ -6,6 +6,8 @@ import { normalizeEstimatedDeliveryDays, normalizeFulfillmentStatus } from '../.
 import type { AdminStats, Product } from '../../src/types.js';
 import { hasSuperAdminRole, logActivity, pushNotification, requireAdmin } from '../middleware.js';
 import { adminRateLimiter, clientKey, createSession, hashPassword, newId, verifyPassword } from '../security.js';
+import { OFFICIAL_STORE_ID } from '../seed/catalog.js';
+import { ensureOfficialStore } from '../seed/seed.js';
 import {
   asyncHandler, EMAIL_REGEX, normalizeEmail, publicUser, resolveCategoryName, toNumber,
 } from './helpers.js';
@@ -367,8 +369,11 @@ router.post('/products', requireAdmin, asyncHandler(async (req, res) => {
     return res.status(400).json({ error: 'A title and a price greater than zero are required.' });
   }
 
-  const businessId = String(req.body?.businessId || 'BIZ-001');
-  const business = await store.findBusiness(businessId);
+  const requestedBusinessId = String(req.body?.businessId || '').trim();
+  let business = requestedBusinessId ? await store.findBusiness(requestedBusinessId) : null;
+  if (!business && (!requestedBusinessId || requestedBusinessId === OFFICIAL_STORE_ID)) {
+    business = await ensureOfficialStore(store);
+  }
   if (!business) {
     return res.status(400).json({ error: 'Select an existing store for this product.' });
   }
@@ -456,7 +461,11 @@ router.put('/products/:id', requireAdmin, asyncHandler(async (req, res) => {
   if (req.body?.isFeatured !== undefined) patch.isFeatured = Boolean(req.body.isFeatured);
   if (req.body?.isActive !== undefined) patch.isActive = Boolean(req.body.isActive);
   if (req.body?.businessId !== undefined) {
-    const business = await store.findBusiness(String(req.body.businessId));
+    const requestedBusinessId = String(req.body.businessId || '').trim();
+    let business = requestedBusinessId ? await store.findBusiness(requestedBusinessId) : null;
+    if (!business && (!requestedBusinessId || requestedBusinessId === OFFICIAL_STORE_ID)) {
+      business = await ensureOfficialStore(store);
+    }
     if (!business) return res.status(400).json({ error: 'Unknown store.' });
     patch.businessId = business.id;
     patch.sellerName = business.name;

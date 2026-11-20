@@ -4,6 +4,7 @@ import { normalizeEstimatedDeliveryDays, normalizeFulfillmentStatus } from '../.
 import type { Product } from '../../src/types.js';
 import { logActivity, requireAuth, requireRole } from '../middleware.js';
 import { clientKey, newId, writeRateLimiter } from '../security.js';
+import { ensureOfficialStore } from '../seed/seed.js';
 import { asyncHandler, resolveCategoryName, toNumber } from './helpers.js';
 
 const router = Router();
@@ -13,7 +14,8 @@ router.use(requireAuth, requireRole('seller', 'super_admin'));
 async function requireSellerBusiness(userId: string) {
   const store = getStore();
   const user = await store.findUserById(userId);
-  const business = user?.businessId ? await store.findBusiness(user.businessId) : await store.findBusinessByOwner(userId);
+  const linkedBusiness = user?.businessId ? await store.findBusiness(user.businessId) : await store.findBusinessByOwner(userId);
+  const business = linkedBusiness || await ensureOfficialStore(store);
   return { store, user, business };
 }
 
