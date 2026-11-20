@@ -2,8 +2,10 @@ import { Router } from 'express';
 import type { ProductFulfillmentStatus } from '../../src/types.js';
 import { config } from '../config.js';
 import { getStore } from '../db/index.js';
+import type { Store } from '../db/index.js';
 import { isEmailDeliveryConfigured } from '../services/email.js';
 import { readDataUrl, uploadImage, UploadError } from '../services/upload.js';
+import { ensureOfficialStore } from '../seed/seed.js';
 import { asyncHandler, toNumber } from './helpers.js';
 
 const router = Router();
@@ -27,6 +29,22 @@ function parseProductQuery(query: Record<string, unknown>) {
       ? fulfillment
       : undefined) as ProductFulfillmentStatus | undefined,
   };
+}
+
+async function loadPublicStores(store: Store) {
+  const official = await ensureOfficialStore(store);
+  const [businesses, products] = await Promise.all([
+    store.listBusinesses(),
+    store.listAllProducts(),
+  ]);
+  const stores = businesses.map(business => ({
+    ...business,
+    totalProducts: products.filter(product => product.businessId === business.id).length,
+  }));
+  if (!stores.some(business => business.id === official.id)) {
+    stores.unshift({ ...official, totalProducts: 0 });
+  }
+  return stores;
 }
 
 router.get('/settings', asyncHandler(async (_req, res) => {
@@ -87,16 +105,17 @@ router.get('/categories/:slug', asyncHandler(async (req, res) => {
   res.json({ category, products: result.products, total: result.total });
 }));
 
+router.get('/stores', asyncHandler(async (_req, res) => {
+  const stores = await loadPublicStores(getStore());
+  res.json({ stores, businesses: stores, sellers: stores });
+}));
+
 router.get('/sellers', asyncHandler(async (_req, res) => {
-  const store = getStore();
-  const businesses = await store.listBusinesses();
-  const counts = await store.countProductsByCategory();
-  const products = await store.listAllProducts();
+  const stores = await loadPublicStores(getStore());
+  const counts = await getStore().countProductsByCategory();
   res.json({
-    businesses: businesses.map(business => ({
-      ...business,
-      totalProducts: products.filter(product => product.businessId === business.id).length,
-    })),
+    businesses: stores,
+    sellers: stores,
     categoryCount: Object.keys(counts).length,
   });
 }));

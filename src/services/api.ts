@@ -13,6 +13,33 @@ export interface ProductPageResponse extends Paginated<Product> {
   products: Product[];
 }
 
+const OFFICIAL_STORE_ID = 'BIZ-001';
+const OFFICIAL_STORE: Business = {
+  id: OFFICIAL_STORE_ID,
+  ownerId: '',
+  name: 'Bonfils Store Official',
+  type: 'official',
+  description: 'Direct procurement and guaranteed original products from Bonfils International Logistics & China Sourcing Hub.',
+  phone: '+250788100200',
+  email: 'official@bonfilsstore.com',
+  country: 'Rwanda',
+  city: 'Kigali',
+  rating: 4.9,
+  reviewsCount: 342,
+  totalProducts: 0,
+  totalSales: 1250,
+  isVerified: true,
+  status: 'active',
+  shippingTerms: 'Same day dispatch for Kigali; 24-48 hours nationwide. 100% Genuine Guaranteed.',
+  createdAt: '2026-01-05T09:00:00.000Z',
+};
+
+function withOfficialStore(stores?: Business[] | null): Business[] {
+  const list = Array.isArray(stores) ? [...stores] : [];
+  if (!list.some(store => store.id === OFFICIAL_STORE_ID)) list.unshift(OFFICIAL_STORE);
+  return list;
+}
+
 export const api = {
   // ------------------------------------------------------------------ tokens
   getToken(): string | null {
@@ -272,8 +299,13 @@ export const api = {
   },
 
   async getAdminBusinesses() {
-    const data = await this.adminRequest<{ businesses: Business[] }>('/api/admin/businesses');
-    return data.businesses;
+    const data = await this.adminRequest<{ businesses?: Business[]; stores?: Business[] }>('/api/admin/businesses');
+    return withOfficialStore(data.businesses || data.stores);
+  },
+
+  async getAdminStores() {
+    const data = await this.adminRequest<{ stores?: Business[]; businesses?: Business[] }>('/api/admin/stores');
+    return withOfficialStore(data.stores || data.businesses);
   },
 
   async updateAdminBusiness(id: string, payload: any) {
@@ -429,9 +461,14 @@ export const api = {
     return data.categories;
   },
 
+  async getStores() {
+    const data = await this.request<{ stores?: Business[]; businesses?: Business[] }>('/api/stores');
+    return withOfficialStore(data.stores || data.businesses);
+  },
+
   async getSellers() {
-    const data = await this.request<{ businesses: Business[] }>('/api/sellers');
-    return data.businesses;
+    const data = await this.request<{ businesses?: Business[]; stores?: Business[] }>('/api/sellers');
+    return withOfficialStore(data.businesses || data.stores);
   },
 
   async getSeller(id: string) {

@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { config } from '../config.js';
 import { getStore } from '../db/index.js';
-import type { UserRecord } from '../db/index.js';
+import type { Store, UserRecord } from '../db/index.js';
 import { normalizeEstimatedDeliveryDays, normalizeFulfillmentStatus } from '../../src/types.js';
 import type { AdminStats, Product } from '../../src/types.js';
 import { hasSuperAdminRole, logActivity, pushNotification, requireAdmin } from '../middleware.js';
@@ -308,20 +308,31 @@ router.delete('/users/:id', requireAdmin, asyncHandler(async (req, res) => {
 }));
 
 // ---------------------------------------------------------------- businesses
-router.get('/businesses', requireAdmin, asyncHandler(async (_req, res) => {
-  const store = getStore();
+async function loadAdminStores(store: Store) {
+  const official = await ensureOfficialStore(store);
   const [businesses, products, orders] = await Promise.all([
     store.listBusinesses(),
     store.listAllProducts(),
     store.listOrders({}),
   ]);
-  res.json({
-    businesses: businesses.map(business => ({
-      ...business,
-      totalProducts: products.filter(product => product.businessId === business.id).length,
-      totalOrders: orders.filter(order => order.items.some(item => item.businessId === business.id)).length,
-    })),
-  });
+  const stores = businesses.map(business => ({
+    ...business,
+    totalProducts: products.filter(product => product.businessId === business.id).length,
+    totalOrders: orders.filter(order => order.items.some(item => item.businessId === business.id)).length,
+  }));
+  if (!stores.some(business => business.id === official.id)) {
+    stores.unshift({ ...official, totalProducts: 0, totalOrders: 0 });
+  }
+  return stores;
+}
+
+router.get('/businesses', requireAdmin, asyncHandler(async (_req, res) => {
+  res.json({ businesses: await loadAdminStores(getStore()) });
+}));
+
+router.get('/stores', requireAdmin, asyncHandler(async (_req, res) => {
+  const stores = await loadAdminStores(getStore());
+  res.json({ stores, businesses: stores });
 }));
 
 router.put('/businesses/:id', requireAdmin, asyncHandler(async (req, res) => {

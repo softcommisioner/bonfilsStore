@@ -92,10 +92,12 @@ function Modal({ title, onClose, children, wide }: {
   );
 }
 
+const OFFICIAL_STORE_ID = 'BIZ-001';
 const OFFICIAL_STORE_NAME = 'Bonfils Store Official';
 
 function defaultStoreId(businesses: Business[]): string {
-  return businesses.find(business => business.name.toLowerCase() === OFFICIAL_STORE_NAME.toLowerCase())?.id
+  return businesses.find(business => business.id === OFFICIAL_STORE_ID)?.id
+    || businesses.find(business => business.name.toLowerCase() === OFFICIAL_STORE_NAME.toLowerCase())?.id
     || businesses.find(business => business.type === 'official')?.id
     || businesses[0]?.id
     || '';
@@ -275,7 +277,7 @@ export const AdminViews: React.FC<AdminViewsProps> = ({ onNavigate }) => {
           api.getAdminStats(),
           api.getAdminProducts({ pageSize: '100', search: productSearch }),
           api.getAdminCategories(),
-          api.getAdminBusinesses(),
+          api.getAdminStores(),
           api.getAdminUsers(),
           api.getAdminOrders(),
           api.getAdminChinaRequests(),
