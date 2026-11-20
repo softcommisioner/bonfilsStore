@@ -393,43 +393,6 @@ export const AuthViews: React.FC<AuthViewsProps> = ({
               />
             </div>
 
-            {/* Quick pre-fill buttons for test convenience */}
-            <div className="p-2.5 bg-[#F9F9F8] rounded-lg border border-[#E5E5E5] text-[11px] space-y-1">
-              <span className="text-[#888888] block">Quick test accounts:</span>
-              <div className="flex flex-wrap gap-1.5">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setLoginEmail('buyer@bonfilsstore.com');
-                    setLoginPassword('Buyer@12345');
-                  }}
-                  className="px-2 py-0.5 bg-white border border-[#E5E5E5] rounded text-[#444444] hover:text-[#FF6A00] cursor-pointer"
-                >
-                  Buyer
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setLoginEmail('seller@bonfilsstore.com');
-                    setLoginPassword('Seller@12345');
-                  }}
-                  className="px-2 py-0.5 bg-white border border-[#E5E5E5] rounded text-[#444444] hover:text-[#FF6A00] cursor-pointer"
-                >
-                  Seller + Buyer
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setLoginEmail('staff@bonfilsstore.com');
-                    setLoginPassword('Staff@12345');
-                  }}
-                  className="px-2 py-0.5 bg-white border border-[#E5E5E5] rounded text-[#444444] hover:text-[#FF6A00] cursor-pointer"
-                >
-                  Staff
-                </button>
-              </div>
-            </div>
-
             <button
               type="submit"
               disabled={isLoading}

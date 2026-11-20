@@ -234,10 +234,9 @@ async function seedDemoUsersIfMissing(store: Store) {
   }
   const businesses = await store.listBusinesses();
   for (const business of businesses) {
-    if (business.ownerId) continue;
-    const ownerEmail = business.id === 'BIZ-001' ? config.superAdminEmail : 'seller@bonfilsstore.com';
-    if (!ownerEmail) continue;
-    const owner = await store.findUserByEmail(ownerEmail);
+    if (business.ownerId || business.id !== OFFICIAL_STORE_ID) continue;
+    if (!config.superAdminEmail) continue;
+    const owner = await store.findUserByEmail(config.superAdminEmail);
     if (owner) await store.updateBusiness(business.id, { ownerId: owner.id });
   }
 }

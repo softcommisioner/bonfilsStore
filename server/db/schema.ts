@@ -218,6 +218,9 @@ ALTER TABLE sessions ADD COLUMN IF NOT EXISTS audience TEXT NOT NULL DEFAULT 'ap
 ALTER TABLE sessions ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
 ALTER TABLE sessions ADD COLUMN IF NOT EXISTS expires_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
 
+DELETE FROM sessions WHERE user_id IN (SELECT id FROM users WHERE LOWER(email) IN ('seller@bonfilsstore.com', 'buyer@bonfilsstore.com', 'staff@bonfilsstore.com'));
+DELETE FROM users WHERE LOWER(email) IN ('seller@bonfilsstore.com', 'buyer@bonfilsstore.com', 'staff@bonfilsstore.com');
+
 ALTER TABLE otps ADD COLUMN IF NOT EXISTS email TEXT NOT NULL DEFAULT '';
 ALTER TABLE otps ADD COLUMN IF NOT EXISTS purpose TEXT NOT NULL DEFAULT '';
 ALTER TABLE otps ADD COLUMN IF NOT EXISTS otp_hash TEXT NOT NULL DEFAULT '';

@@ -483,7 +483,7 @@ export const seedBusinesses: Business[] = [
   {
     id: 'BIZ-002', ownerId: '', name: 'URUKUNDO SHOP', type: 'external',
     description: 'Quality smart electronics, cameras, home security devices, and modern gadgets imported from verified tier-1 factories.',
-    phone: '+250788555666', email: 'seller@bonfilsstore.com', country: 'Rwanda', city: 'Kigali',
+    phone: '+250788555666', email: 'urukundo@bonfilsstore.com', country: 'Rwanda', city: 'Kigali',
     rating: 4.8, reviewsCount: 184, totalProducts: 0, totalSales: 630, isVerified: true, status: 'active',
     shippingTerms: 'Free delivery within Kigali for orders over $50.',
     momoPayCode: 'DEMO MoMo *182*8*1*0000003#',
@@ -532,11 +532,7 @@ export interface DemoUserSeed {
   password: string;
 }
 
-export const demoUsers: DemoUserSeed[] = [
-  { id: 'USR-STAFF-001', name: 'Jean Claude (Sourcing Team)', email: 'staff@bonfilsstore.com', phone: '+250788300400', roles: ['staff'], accountType: 'customer', password: 'Staff@12345' },
-  { id: 'USR-SELLER-001', name: 'Kevin Mugisha', email: 'seller@bonfilsstore.com', phone: '+250788555666', roles: ['customer', 'seller'], accountType: 'both', businessId: 'BIZ-002', password: 'Seller@12345' },
-  { id: 'USR-BUYER-001', name: 'Aline Uwase', email: 'buyer@bonfilsstore.com', phone: '+250788777888', roles: ['customer'], accountType: 'customer', password: 'Buyer@12345' },
-];
+export const demoUsers: DemoUserSeed[] = [];
 
 export function buildDemoUser(seed: DemoUserSeed, hash: string, salt: string): UserRecord {
   return {
