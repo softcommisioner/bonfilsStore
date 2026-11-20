@@ -298,6 +298,35 @@ export class PostgresStore implements Store {
     return mapUser(rows[0]);
   }
 
+  async upsertSuperAdmin(user: UserRecord): Promise<UserRecord> {
+    const email = String(user.email || '').trim().toLowerCase();
+    const rows = await this.query(
+      `INSERT INTO users (id, name, email, phone, country, city, roles, account_type, is_verified, status, business_id, password_hash, password_salt, created_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
+       ON CONFLICT (LOWER(email)) DO UPDATE SET
+         name = EXCLUDED.name,
+         email = EXCLUDED.email,
+         roles = ARRAY(
+           SELECT DISTINCT r.role
+           FROM unnest(COALESCE(users.roles, ARRAY[]::TEXT[]) || EXCLUDED.roles) AS r(role)
+           WHERE r.role IS NOT NULL
+           ORDER BY r.role
+         )::TEXT[],
+         is_verified = TRUE,
+         status = 'active',
+         password_hash = EXCLUDED.password_hash,
+         password_salt = EXCLUDED.password_salt,
+         updated_at = NOW()
+       RETURNING *`,
+      [
+        user.id, user.name, email, user.phone, user.country, user.city, user.roles,
+        user.accountType, user.isVerified, user.status, user.businessId || null,
+        user.passwordHash, user.passwordSalt, user.createdAt,
+      ],
+    );
+    return mapUser(rows[0]);
+  }
+
   async updateUser(id: string, patch: Partial<UserRecord>): Promise<UserRecord | null> {
     const map: Record<string, string> = {
       name: 'name', email: 'email', phone: 'phone', country: 'country', city: 'city',

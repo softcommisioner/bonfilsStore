@@ -93,6 +93,7 @@ export interface Store {
   findUserById(id: string): Promise<UserRecord | null>;
   listUsers(): Promise<UserRecord[]>;
   createUser(user: UserRecord): Promise<UserRecord>;
+  upsertSuperAdmin(user: UserRecord): Promise<UserRecord>;
   updateUser(id: string, patch: Partial<UserRecord>): Promise<UserRecord | null>;
   deleteUser(id: string): Promise<boolean>;
 

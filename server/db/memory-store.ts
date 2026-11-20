@@ -151,6 +151,30 @@ export class MemoryStore implements Store {
     return clone(saved);
   }
 
+  async upsertSuperAdmin(user: UserRecord): Promise<UserRecord> {
+    const normalized = { ...user, email: String(user.email || '').trim().toLowerCase() };
+    const index = this.tables.users.findIndex(u => u.email.toLowerCase() === normalized.email.toLowerCase());
+    if (index === -1) {
+      const roles = Array.from(new Set([...normalized.roles, 'super_admin' as const])) as UserRecord['roles'];
+      const saved = { ...normalized, roles, isVerified: true, status: 'active' } as UserRecord;
+      this.tables.users.push(saved);
+      this.flush();
+      return clone(saved);
+    }
+    const roles = Array.from(new Set([...this.tables.users[index].roles, ...normalized.roles, 'super_admin' as const])) as UserRecord['roles'];
+    const next = {
+      ...this.tables.users[index],
+      ...normalized,
+      name: normalized.name || this.tables.users[index].name,
+      roles,
+      isVerified: true,
+      status: 'active',
+    } as UserRecord;
+    this.tables.users[index] = next;
+    this.flush();
+    return clone(next);
+  }
+
   async updateUser(id: string, patch: Partial<UserRecord>): Promise<UserRecord | null> {
     const index = this.tables.users.findIndex(u => u.id === id);
     if (index === -1) return null;

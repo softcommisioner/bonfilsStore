@@ -147,42 +147,25 @@ export async function ensureSuperAdmin(store: Store): Promise<UserRecord | null>
   const email = config.superAdminEmail.toLowerCase();
   const existing = await store.findUserByEmail(email);
   const { hash, salt } = await hashPassword(config.superAdminPassword);
-
-  if (!existing) {
-    const admin: UserRecord = {
-      id: 'USR-ADMIN-001',
-      name: config.superAdminName || 'Bonfils Super Admin',
-      email,
-      phone: '+250788100200',
-      country: 'Rwanda',
-      city: 'Kigali',
-      roles: ['super_admin'],
-      accountType: 'customer',
-      isVerified: true,
-      status: 'active',
-      businessId: 'BIZ-001',
-      passwordHash: hash,
-      passwordSalt: salt,
-      createdAt: new Date().toISOString(),
-    };
-    await store.createUser(admin);
-    log(`super admin created for ${email}`);
-    return admin;
-  }
-
-  if (!hasSuperAdminRole(existing.roles) || existing.status !== 'active' || !existing.isVerified) {
-    const updated = await store.updateUser(existing.id, {
-      roles: Array.from(new Set([...existing.roles, 'super_admin'] as UserRecord['roles'])),
-      status: 'active',
-      isVerified: true,
-      passwordHash: hash,
-      passwordSalt: salt,
-    });
-    log(`super admin promoted/reset for ${email}`);
-    return updated;
-  }
-
-  return existing;
+  const admin: UserRecord = {
+    id: existing?.id || 'USR-ADMIN-001',
+    name: config.superAdminName || existing?.name || 'Bonfils Super Admin',
+    email,
+    phone: existing?.phone || '+250788100200',
+    country: existing?.country || 'Rwanda',
+    city: existing?.city || 'Kigali',
+    roles: ['super_admin'],
+    accountType: existing?.accountType || 'customer',
+    isVerified: true,
+    status: 'active',
+    businessId: existing?.businessId || 'BIZ-001',
+    passwordHash: hash,
+    passwordSalt: salt,
+    createdAt: existing?.createdAt || new Date().toISOString(),
+  };
+  const saved = await store.upsertSuperAdmin(admin);
+  log(existing ? `super admin synced for ${email}` : `super admin created for ${email}`);
+  return saved;
 }
 
 async function seedCategoriesIfMissing(store: Store) {
@@ -269,13 +252,13 @@ async function seedProductsIfMissing(store: Store) {
 }
 
 export async function runSeed(store: Store = getStore()): Promise<void> {
+  await ensureSuperAdmin(store);
   await migrateCategoryStructure(store);
   await seedCategoriesIfMissing(store);
   await seedBusinessesIfMissing(store);
   await sanitizeDemoPaymentDetails(store);
   await seedDemoUsersIfMissing(store);
   await seedProductsIfMissing(store);
-  await ensureSuperAdmin(store);
   log('seeding complete');
 }
 
