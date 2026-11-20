@@ -78,15 +78,15 @@ function Modal({ title, onClose, children, wide }: {
   wide?: boolean;
 }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center bg-black/80 p-4 overflow-y-auto">
-      <div className={`w-full ${wide ? 'max-w-3xl' : 'max-w-lg'} rounded-xl border border-[#2E2E2E] bg-[#141414] my-8`}>
-        <header className="flex items-center justify-between px-4 py-3 border-b border-[#262626]">
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/80 p-4">
+      <div className={`my-auto flex max-h-[calc(100vh-2rem)] w-full flex-col overflow-hidden rounded-xl border border-[#2E2E2E] bg-[#141414] ${wide ? 'max-w-3xl' : 'max-w-lg'}`}>
+        <header className="flex shrink-0 items-center justify-between px-4 py-3 border-b border-[#262626]">
           <h3 className="text-sm font-bold text-white">{title}</h3>
           <button onClick={onClose} className="text-[#888888] hover:text-white cursor-pointer" aria-label="Close">
             <X className="w-4 h-4" />
           </button>
         </header>
-        <div className="p-4 space-y-4">{children}</div>
+        <div className="min-h-0 overflow-y-auto p-4 space-y-4">{children}</div>
       </div>
     </div>
   );
