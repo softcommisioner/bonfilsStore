@@ -47,7 +47,7 @@ function mapBusiness(row: Row): Business {
   return {
     id: row.id,
     ownerId: row.owner_id,
-    name: row.name,
+    name: row.name || row.business_name || '',
     type: row.type,
     description: row.description,
     phone: row.phone,
@@ -470,11 +470,12 @@ export class PostgresStore implements Store {
   }
 
   async createBusiness(business: Business): Promise<Business> {
+    const businessName = business.name?.trim() || 'Bonfils Store Official';
     const rows = await this.query(
-      `INSERT INTO businesses (id, owner_id, name, type, description, phone, email, country, city, rating, reviews_count, total_products, total_sales, is_verified, status, shipping_terms, momo_pay_code, airtel_money_code, bank_name, bank_account_name, bank_account_number, whatsapp_number, created_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23) RETURNING *`,
+      `INSERT INTO businesses (id, owner_id, name, business_name, type, description, phone, email, country, city, rating, reviews_count, total_products, total_sales, is_verified, status, shipping_terms, momo_pay_code, airtel_money_code, bank_name, bank_account_name, bank_account_number, whatsapp_number, created_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24) RETURNING *`,
       [
-        business.id, business.ownerId || null, business.name, business.type, business.description,
+        business.id, business.ownerId || null, businessName, businessName, business.type, business.description,
         business.phone, business.email, business.country, business.city, business.rating,
         business.reviewsCount, business.totalProducts, business.totalSales, business.isVerified,
         business.status, business.shippingTerms, business.momoPayCode || null,
@@ -502,6 +503,10 @@ export class PostgresStore implements Store {
         values.push((patch as any)[key] === '' ? null : (patch as any)[key]);
         sets.push(`${column} = $${values.length}`);
       }
+    }
+    if (patch.name !== undefined) {
+      values.push(patch.name.trim() || 'Bonfils Store Official');
+      sets.push(`business_name = $${values.length}`);
     }
     if (!sets.length) return this.findBusiness(id);
     values.push(id);

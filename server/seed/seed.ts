@@ -188,14 +188,11 @@ export async function ensureOfficialStore(store: Store): Promise<Business> {
     log(`official store created: ${OFFICIAL_STORE_NAME}`);
     return created;
   }
-  const patch: Partial<Business> = {};
-  if (existing.name !== OFFICIAL_STORE_NAME) patch.name = OFFICIAL_STORE_NAME;
-  if (existing.type !== 'official') patch.type = 'official';
-  if (Object.keys(patch).length) {
-    const updated = await store.updateBusiness(existing.id, patch);
-    if (updated) return updated;
-  }
-  return existing;
+  const updated = await store.updateBusiness(existing.id, {
+    name: OFFICIAL_STORE_NAME,
+    type: 'official',
+  });
+  return updated || existing;
 }
 
 async function seedBusinessesIfMissing(store: Store) {

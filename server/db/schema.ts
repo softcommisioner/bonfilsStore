@@ -43,6 +43,7 @@ CREATE TABLE IF NOT EXISTS businesses (
   id             TEXT PRIMARY KEY,
   owner_id       TEXT,
   name           TEXT NOT NULL,
+  business_name  TEXT NOT NULL DEFAULT '',
   type           TEXT NOT NULL DEFAULT 'external',
   description    TEXT NOT NULL DEFAULT '',
   phone          TEXT NOT NULL DEFAULT '',
@@ -230,6 +231,7 @@ ALTER TABLE otps ADD COLUMN IF NOT EXISTS payload JSONB;
 
 ALTER TABLE businesses ADD COLUMN IF NOT EXISTS owner_id TEXT;
 ALTER TABLE businesses ADD COLUMN IF NOT EXISTS name TEXT NOT NULL DEFAULT '';
+ALTER TABLE businesses ADD COLUMN IF NOT EXISTS business_name TEXT NOT NULL DEFAULT '';
 ALTER TABLE businesses ADD COLUMN IF NOT EXISTS type TEXT NOT NULL DEFAULT 'external';
 ALTER TABLE businesses ADD COLUMN IF NOT EXISTS description TEXT NOT NULL DEFAULT '';
 ALTER TABLE businesses ADD COLUMN IF NOT EXISTS phone TEXT NOT NULL DEFAULT '';
@@ -253,6 +255,8 @@ ALTER TABLE businesses ADD COLUMN IF NOT EXISTS bank_account_name TEXT;
 ALTER TABLE businesses ADD COLUMN IF NOT EXISTS bank_account_number TEXT;
 ALTER TABLE businesses ADD COLUMN IF NOT EXISTS whatsapp_number TEXT;
 ALTER TABLE businesses ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+UPDATE businesses SET business_name = COALESCE(business_name, name, 'Bonfils Store Official');
+ALTER TABLE businesses ALTER COLUMN business_name DROP NOT NULL;
 
 ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS usd_to_rwf_rate NUMERIC(12,2) NOT NULL DEFAULT 1350;
 ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
